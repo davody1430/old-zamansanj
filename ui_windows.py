@@ -3,10 +3,29 @@ from tkinter import messagebox, simpledialog, Toplevel, filedialog, Text
 import database as db
 import reports
 from datetime import datetime, timedelta
+import jdatetime
 import styles
 import webbrowser
-import tempfile
 import os
+from custom_widgets import DateEntry
+
+import ttkbootstrap as ttkb
+from tkinter import messagebox, simpledialog, Toplevel
+import database as db
+import styles
+
+
+import ttkbootstrap as ttkb
+from tkinter import messagebox, simpledialog, Toplevel
+import database as db
+import styles
+
+
+import ttkbootstrap as ttkb
+from tkinter import messagebox, simpledialog, Toplevel, Menu
+import database as db
+import styles
+
 
 class CategoryManagerWindow(Toplevel):
     def __init__(self, master):
@@ -15,59 +34,105 @@ class CategoryManagerWindow(Toplevel):
         self.title("مدیریت دسته‌ها")
         self.transient(master)
         self.grab_set()
-        
-        # Center the window
-        self.update_idletasks()
-        width = 300 
-        height = 350
-        x = (self.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.winfo_screenheight() // 2) - (height // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
-        
-        self.listbox = ttkb.Treeview(self, columns=("id", "name"), show="headings", height=10)
-        self.listbox.heading("id", text="شناسه")
-        self.listbox.heading("name", text="نام دسته")
-        self.listbox.column("id", width=80, anchor="center")
-        self.listbox.column("name", width=200, anchor="e")
-        self.listbox.pack(padx=10, pady=10)
-        
-        self.refresh_listbox()
-        
-        btn_frame = ttkb.Frame(self)
-        btn_frame.pack(pady=5)
-        
-        ttkb.Button(btn_frame, text="حذف", command=self.delete_selected, bootstyle=styles.BUTTON_DANGER).pack(side="right", padx=5)
-        ttkb.Button(btn_frame, text="افزودن", command=self.add_new, bootstyle=styles.BUTTON_SUCCESS).pack(side="right", padx=5)
+        self.geometry("330x360")
+        self.resizable(False, False)
 
-    def refresh_listbox(self):
-        for row in self.listbox.get_children():
-            self.listbox.delete(row)
+        # Treeview -------------------------------------------------
+        self.tree = ttkb.Treeview(
+            self, columns=("id", "name"), show="headings", height=11
+        )
+        self.tree.heading("id", text="شناسه")
+        self.tree.heading("name", text="نام دسته")
+        self.tree.column("id", width=70, anchor="center")
+        self.tree.column("name", width=240, anchor="e")
+        self.tree.pack(padx=10, pady=5)
+
+        # دکمه‌ها --------------------------------------------------
+        btn_frame = ttkb.Frame(self)
+        btn_frame.pack(pady=7)
+        ttkb.Button(
+            btn_frame, text="افزودن", command=self.add_new,
+            bootstyle="success-outline", width=8
+        ).pack(side="right", padx=4)
+        ttkb.Button(
+            btn_frame, text="ویرایش", command=self.edit_selected,
+            bootstyle="warning-outline", width=8
+        ).pack(side="right", padx=4)
+        ttkb.Button(
+            btn_frame, text="حذف", command=self.delete_selected,
+            bootstyle="danger-outline", width=8
+        ).pack(side="right", padx=4)
+
+        # منوی راست-کلیک ------------------------------------------
+        self.popup = Menu(self, tearoff=0)
+        self.popup.add_command(label="ویرایش", command=self.edit_selected)
+        self.popup.add_command(label="حذف", command=self.delete_selected)
+        self.tree.bind("<Button-3>", self.show_popup)
+
+        # پر کردن اولیه
+        self.refresh_list()
+
+    # -----------------------------------------------------------
+    def show_popup(self, event):
+        """نمایش منو در محل اشاره‌گر ماوس"""
+        item = self.tree.identify_row(event.y)
+        if item:
+            self.tree.selection_set(item)
+            self.popup.tk_popup(event.x_root, event.y_root)
+
+    def refresh_list(self):
+        """خالی کردن و دوباره پر کردن Treeview"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
         for cat_id, name in db.get_categories():
-            self.listbox.insert("", "end", values=(cat_id, name))
+            self.tree.insert("", "end", values=(cat_id, name))
 
     def add_new(self):
-        name = simpledialog.askstring("افزودن دسته", "نام دسته جدید را وارد کنید:", parent=self)
-        if name:
-            db.add_category(name)
-            self.refresh_listbox()
-            self.master.populate_categories()
+        name = simpledialog.askstring(
+            "افزودن دسته", "نام دسته جدید:", parent=self
+        )
+        if name and name.strip():
+            if db.get_category_id_by_name(name.strip()) is None:
+                db.add_category(name.strip())
+                self.refresh_list()
+                self.master.populate_categories()  # ComboBox اصلی
+                messagebox.showinfo("موفقیت", "دسته افزوده شد.", parent=self)
+            else:
+                messagebox.showerror("خطا", "نام تکراری است.", parent=self)
+
+    def edit_selected(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("انتخاب نشده", "یک دسته را انتخاب کنید.", parent=self)
+            return
+        cat_id, old_name = self.tree.item(sel[0])["values"]
+        new_name = simpledialog.askstring(
+            "ویرایش دسته", f"نام جدید برای '{old_name}':",
+            initialvalue=old_name, parent=self
+        )
+        if new_name and new_name.strip() and new_name != old_name:
+            ok = db.update_category_name(cat_id, new_name.strip())
+            if ok:
+                self.refresh_list()
+                self.master.populate_categories()
+                messagebox.showinfo("موفقیت", "دسته ویرایش شد.", parent=self)
+            else:
+                messagebox.showerror("خطا", "نام تکراری است.", parent=self)
 
     def delete_selected(self):
-        selected_item = self.listbox.selection()
-        if not selected_item:
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("انتخاب نشده", "یک دسته را انتخاب کنید.", parent=self)
             return
-            
-        cat_id = self.listbox.item(selected_item[0])['values'][0]
-        cat_name = self.listbox.item(selected_item[0])['values'][1]
-        
+        cat_id, cat_name = self.tree.item(sel[0])["values"]
         if db.is_category_used(cat_id):
-            messagebox.showerror("خطا", f"دسته '{cat_name}' در فعالیت‌ها استفاده شده و قابل حذف نیست.", parent=self)
+            messagebox.showerror("خطا", "دسته در فعالیت‌ها استفاده شده و قابل حذف نیست.", parent=self)
             return
-            
-        if messagebox.askyesno("تایید حذف", f"آیا مطمئن هستید می‌خواهید دسته '{cat_name}' را حذف کنید؟", parent=self):
+        if messagebox.askyesno("تأیید", f"دسته '{cat_name}' حذف شود؟", parent=self):
             db.delete_category(cat_id)
-            self.refresh_listbox()
+            self.refresh_list()
             self.master.populate_categories()
+            messagebox.showinfo("موفقیت", "دسته حذف شد.", parent=self)
 
 class ReportGeneratorWindow(Toplevel):
     def __init__(self, master):
@@ -76,84 +141,114 @@ class ReportGeneratorWindow(Toplevel):
         self.title("ساخت گزارش")
         self.transient(master)
         self.grab_set()
-        
-        # Center the window
-        self.update_idletasks()
-        width = 350
-        height = 250
-        x = (self.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.winfo_screenheight() // 2) - (height // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
 
-        frame = ttkb.Frame(self, padding=10)
-        frame.pack()
+        self.geometry("350x280")
+        self.resizable(False, False)
 
-        ttkb.Label(frame, text="از تاریخ (YYYY-MM-DD):").pack(pady=5)
-        self.start_date_entry = ttkb.Entry(frame, justify='center')
-        self.start_date_entry.insert(0, (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d'))
-        self.start_date_entry.pack(pady=5)
+        # ---------------------- فریم اصلی ----------------------
+        main_frame = ttkb.Frame(self, padding=15)
+        main_frame.pack(fill="both", expand=True)
 
-        ttkb.Label(frame, text="تا تاریخ (YYYY-MM-DD):").pack(pady=5)
-        self.end_date_entry = ttkb.Entry(frame, justify='center')
-        self.end_date_entry.insert(0, datetime.now().strftime('%Y-%m-%d'))
-        self.end_date_entry.pack(pady=5)
+        # ---------------------- فیلدهای تاریخ ----------------------
+        ttkb.Label(main_frame, text="از تاریخ (مثال: ۱۴۰۴/۰۶/۰۱)").grid(row=0, column=1, sticky="e", padx=5, pady=5)
+        self.start_date_entry = DateEntry(main_frame, justify="center", width=14)
+        start_default = jdatetime.date.today() - jdatetime.timedelta(days=7)
+        self.start_date_entry.set(start_default.strftime("%Y/%m/%d"))
+        self.start_date_entry.grid(row=0, column=0, padx=5, pady=5)
 
-        btn_frame = ttkb.Frame(self)
-        btn_frame.pack(pady=20)
-        ttkb.Button(btn_frame, text="ساخت گزارش (HTML)", command=self.generate_and_show_report, bootstyle=styles.BUTTON_PRIMARY).pack(side="right", padx=5)
-        ttkb.Button(btn_frame, text="خروجی CSV", command=self.export_csv, bootstyle=styles.BUTTON_SECONDARY).pack(side="right", padx=5)
+        ttkb.Label(main_frame, text="تا تاریخ (مثال: ۱۴۰۴/۰۶/۳۰)").grid(row=1, column=1, sticky="e", padx=5, pady=5)
+        self.end_date_entry = DateEntry(main_frame, justify="center", width=14)
+        end_default = jdatetime.date.today()
+        self.end_date_entry.set(end_default.strftime("%Y/%m/%d"))
+        self.end_date_entry.grid(row=1, column=0, padx=5, pady=5)
 
-    def generate_and_show_report(self):
-        start_date = self.start_date_entry.get()
-        end_date = self.end_date_entry.get()
+        # ---------------------- دکمه‌های خروجی ----------------------
+        btn_frame = ttkb.Frame(main_frame)
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=20)
 
-        entries = db.get_entries_by_date_range(start_date, end_date)
+        ttkb.Button(
+            btn_frame,
+            text="گزارش HTML",
+            command=self.generate_and_show_report,
+            bootstyle=styles.BTN_PRIMARY,
+            width=12
+        ).pack(side="right", padx=5)
 
-        if not entries:
-            messagebox.showinfo("اطلاعات", "داده‌ای برای ساخت گزارش در این بازه زمانی وجود ندارد.", parent=self)
-            return
+        ttkb.Button(
+            btn_frame,
+            text="خروجی CSV",
+            command=self.export_csv,
+            bootstyle=styles.BTN_SECONDARY,
+            width=12
+        ).pack(side="right", padx=5)
 
-        report_html = reports.generate_html_report(entries)
-        
+    # ------------------------------------------------------------------
+    def _get_gregorian_range(self) -> tuple[str, str] | tuple[None, None]:
+        """برگرداندن بازه‌ی میلادی برای کوئری یا None در صورت خطا"""
         try:
-            # --- بخش اصلاح شده برای ذخیره در پوشه مشخص ---
+            start_j = self.start_date_entry.get()
+            end_j = self.end_date_entry.get()
+            if "Y" in start_j or "Y" in end_j:
+                raise ValueError
 
-            # 1. ساخت نام و مسیر پوشه خروجی
-            output_dir = "reports_output"
-            os.makedirs(output_dir, exist_ok=True) # پوشه را اگر وجود نداشته باشد می‌سازد
+            start_g = jdatetime.datetime.strptime(start_j, "%Y/%m/%d").togregorian().date()
+            end_g = jdatetime.datetime.strptime(end_j, "%Y/%m/%d").togregorian().date()
 
-            # 2. ساخت یک نام فایل منحصر به فرد با تاریخ و زمان
-            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            file_name = f"report_{timestamp}.html"
-            file_path = os.path.join(output_dir, file_name)
-
-            # 3. نوشتن محتوای گزارش در فایل جدید
-            with open(file_path, 'w', encoding='utf-8-sig') as f:
-                f.write(report_html)
-            
-            # 4. باز کردن فایل در مرورگر
-            webbrowser.open('file://' + os.path.realpath(file_path))
-
-            messagebox.showinfo(
-                "گزارش ساخته شد",
-                f"گزارش با موفقیت در پوشه 'reports_output' ذخیره شد.",
+            start_db = start_g.strftime("%Y-%m-%d")
+            end_db = (end_g + timedelta(days=1)).strftime("%Y-%m-%d")
+            return start_db, end_db
+        except (ValueError, AttributeError):
+            messagebox.showerror(
+                "خطای فرمت",
+                "فرمت تاریخ شمسی صحیح نیست.\nلطفاً از فرمت YYYY/MM/DD استفاده کنید.",
                 parent=self
             )
-            # --- پایان بخش اصلاح شده ---
+            return None, None
 
-        except Exception as e:
-            messagebox.showerror("خطا", f"خطا در ساخت یا باز کردن فایل گزارش: {e}", parent=self)
-    def export_csv(self):
-        entries = db.get_entries_by_date_range(self.start_date_entry.get(), self.end_date_entry.get())
-        if not entries:
-            messagebox.showinfo("اطلاعات", "داده‌ای برای خروجی در این بازه زمانی وجود ندارد.", parent=self)
+    # ------------------------------------------------------------------
+    def generate_and_show_report(self) -> None:
+        start_db, end_db = self._get_gregorian_range()
+        if not start_db:
             return
 
-        file_path = filedialog.asksaveasfilename(defaultextension=".csv", 
-                                               filetypes=[("CSV files", "*.csv")])
+        entries = db.get_entries_by_date_range(start_db, end_db)
+        if not entries:
+            messagebox.showinfo("اطلاعات", "داده‌ای برای ساخت گزارش در این بازه وجود ندارد.", parent=self)
+            return
+
+        html = reports.generate_html_report(entries)
+        try:
+            os.makedirs("reports_output", exist_ok=True)
+            stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            file_path = os.path.join("reports_output", f"report_{stamp}.html")
+
+            with open(file_path, "w", encoding="utf-8-sig") as f:
+                f.write(html)
+
+            webbrowser.open("file://" + os.path.abspath(file_path))
+            messagebox.showinfo("موفق", f"گزارش HTML در پوشه‌ی reports_output ذخیره و باز شد.", parent=self)
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در ساخت یا باز کردن فایل گزارش:\n{e}", parent=self)
+
+    # ------------------------------------------------------------------
+    def export_csv(self) -> None:
+        start_db, end_db = self._get_gregorian_range()
+        if not start_db:
+            return
+
+        entries = db.get_entries_by_date_range(start_db, end_db)
+        if not entries:
+            messagebox.showinfo("اطلاعات", "داده‌ای برای خروجی در این بازه وجود ندارد.", parent=self)
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="ذخیره‌ی گزارش CSV"
+        )
         if file_path:
-            message = reports.export_to_csv(entries, file_path)
-            messagebox.showinfo("موفقیت", message, parent=self)
+            msg = reports.export_to_csv(entries, file_path)
+            messagebox.showinfo("موفق", msg, parent=self)
 
 class EditEntryWindow(Toplevel):
     def __init__(self, master, entry_id):
@@ -164,9 +259,8 @@ class EditEntryWindow(Toplevel):
         self.transient(master)
         self.grab_set()
         
-        # Center the window
         self.update_idletasks()
-        width = 400
+        width = 450
         height = 400
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
@@ -180,49 +274,62 @@ class EditEntryWindow(Toplevel):
         _, task_name, category_id, start_time_str, end_time_str, notes = entry_data
         
         frame = ttkb.Frame(self, padding="10")
-        frame.pack()
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
         
-        ttkb.Label(frame, text=":عنوان").grid(row=0, column=1, padx=5, pady=5, sticky='e')
-        self.task_entry = ttkb.Entry(frame, width=40, justify='right')
+        ttkb.Label(frame, text="عنوان").grid(row=0, column=1, padx=5, pady=5, sticky='e')
+        self.task_entry = ttkb.Entry(frame, width=40, justify='right', font=styles.DEFAULT_FONT)
         self.task_entry.insert(0, task_name)
-        self.task_entry.grid(row=0, column=0, padx=5, pady=5)
+        self.task_entry.grid(row=0, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":دسته").grid(row=1, column=1, padx=5, pady=5, sticky='e')
+        ttkb.Label(frame, text="دسته").grid(row=1, column=1, padx=5, pady=5, sticky='e')
         self.cat_combo = ttkb.Combobox(frame, state="readonly", 
-                                     values=[''] + list(self.master.category_map.keys()), 
-                                     justify='right')
+                                      values=[''] + list(self.master.category_map.keys()), 
+                                      justify='right', font=styles.DEFAULT_FONT)
         self.cat_combo.set(self.master.id_to_category_map.get(category_id, ''))
         self.cat_combo.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":زمان شروع").grid(row=2, column=1, padx=5, pady=5, sticky='e')
-        self.start_entry = ttkb.Entry(frame, width=40, justify='center')
-        self.start_entry.insert(0, start_time_str)
-        self.start_entry.grid(row=2, column=0, padx=5, pady=5)
+        ttkb.Label(frame, text="زمان شروع (شمسی)").grid(row=2, column=1, padx=5, pady=5, sticky='e')
+        self.start_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
+        start_gregorian = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+        start_jalali = jdatetime.datetime.fromgregorian(datetime=start_gregorian)
+        self.start_entry.insert(0, start_jalali.strftime('%Y/%m/%d %H:%M:%S'))
+        self.start_entry.grid(row=2, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":زمان پایان").grid(row=3, column=1, padx=5, pady=5, sticky='e')
-        self.end_entry = ttkb.Entry(frame, width=40, justify='center')
+        ttkb.Label(frame, text="زمان پایان (شمسی)").grid(row=3, column=1, padx=5, pady=5, sticky='e')
+        self.end_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
         if end_time_str:
-            self.end_entry.insert(0, end_time_str)
-        self.end_entry.grid(row=3, column=0, padx=5, pady=5)
+            end_gregorian = datetime.strptime(end_time_str, '%Y-%m-%d %H:%M:%S')
+            end_jalali = jdatetime.datetime.fromgregorian(datetime=end_gregorian)
+            self.end_entry.insert(0, end_jalali.strftime('%Y/%m/%d %H:%M:%S'))
+        self.end_entry.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":یادداشت").grid(row=4, column=1, padx=5, pady=5, sticky='e')
+        ttkb.Label(frame, text="یادداشت").grid(row=4, column=1, padx=5, pady=5, sticky='e')
         self.notes_text = Text(frame, width=30, height=4, font=styles.DEFAULT_FONT)
-        self.notes_text.grid(row=4, column=0, padx=5, pady=5)
+        self.notes_text.grid(row=4, column=0, padx=5, pady=5, sticky='ew')
         if notes:
             self.notes_text.insert('1.0', notes)
         
         ttkb.Button(frame, text="ذخیره تغییرات", 
-                   command=self.save_changes, 
-                   bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
+                      command=self.save_changes, 
+                      bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
 
     def save_changes(self):
         try:
             new_task = self.task_entry.get()
             new_cat_name = self.cat_combo.get()
             new_cat_id = self.master.category_map.get(new_cat_name)
-            new_start = datetime.strptime(self.start_entry.get(), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S')
-            new_end_str = self.end_entry.get()
-            new_end = datetime.strptime(new_end_str, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S') if new_end_str else None
+            
+            start_jalali_str = self.start_entry.get()
+            start_gregorian = jdatetime.datetime.strptime(start_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+            new_start = start_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+
+            end_jalali_str = self.end_entry.get()
+            new_end = None
+            if end_jalali_str.strip():
+                end_gregorian = jdatetime.datetime.strptime(end_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+                new_end = end_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+            
             new_notes = self.notes_text.get('1.0', 'end-1c')
             
             if not new_task:
@@ -234,7 +341,7 @@ class EditEntryWindow(Toplevel):
             self.destroy()
             
         except ValueError:
-            messagebox.showerror("خطا", "فرمت تاریخ یا زمان صحیح نیست.\nفرمت صحیح: YYYY-MM-DD HH:MM:SS", parent=self)
+            messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت صحیح: YYYY/MM/DD HH:MM:SS", parent=self)
 
 class AddManualEntryWindow(Toplevel):
     def __init__(self, master):
@@ -244,65 +351,73 @@ class AddManualEntryWindow(Toplevel):
         self.transient(master)
         self.grab_set()
         
-        # Center the window
         self.update_idletasks()
-        width = 400
+        width = 450
         height = 400
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
 
         frame = ttkb.Frame(self, padding="10")
-        frame.pack()
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
         
-        ttkb.Label(frame, text=":عنوان").grid(row=0, column=1, padx=5, pady=5, sticky='e')
-        self.task_entry = ttkb.Entry(frame, width=40, justify='right')
-        self.task_entry.grid(row=0, column=0, padx=5, pady=5)
+        ttkb.Label(frame, text="عنوان").grid(row=0, column=1, padx=5, pady=5, sticky='e')
+        self.task_entry = ttkb.Entry(frame, width=40, justify='right', font=styles.DEFAULT_FONT)
+        self.task_entry.grid(row=0, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":دسته").grid(row=1, column=1, padx=5, pady=5, sticky='e')
+        ttkb.Label(frame, text="دسته").grid(row=1, column=1, padx=5, pady=5, sticky='e')
         self.cat_combo = ttkb.Combobox(frame, state="readonly", 
-                                     values=[''] + list(self.master.category_map.keys()), 
-                                     justify='right')
+                                      values=[''] + list(self.master.category_map.keys()), 
+                                      justify='right', font=styles.DEFAULT_FONT)
         self.cat_combo.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":زمان شروع").grid(row=2, column=1, padx=5, pady=5, sticky='e')
-        self.start_entry = ttkb.Entry(frame, width=40, justify='center')
-        self.start_entry.insert(0, datetime.now().strftime('%Y-%m-%d %H:%M:00'))
-        self.start_entry.grid(row=2, column=0, padx=5, pady=5)
+        ttkb.Label(frame, text="زمان شروع (شمسی)").grid(row=2, column=1, padx=5, pady=5, sticky='e')
+        self.start_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
+        now_jalali = jdatetime.datetime.now().strftime('%Y/%m/%d %H:%M:00')
+        self.start_entry.insert(0, now_jalali)
+        self.start_entry.grid(row=2, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":زمان پایان").grid(row=3, column=1, padx=5, pady=5, sticky='e')
-        self.end_entry = ttkb.Entry(frame, width=40, justify='center')
-        self.end_entry.insert(0, datetime.now().strftime('%Y-%m-%d %H:%M:00'))
-        self.end_entry.grid(row=3, column=0, padx=5, pady=5)
+        ttkb.Label(frame, text="زمان پایان (شمسی)").grid(row=3, column=1, padx=5, pady=5, sticky='e')
+        self.end_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
+        self.end_entry.insert(0, now_jalali)
+        self.end_entry.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Label(frame, text=":یادداشت").grid(row=4, column=1, padx=5, pady=5, sticky='e')
+        ttkb.Label(frame, text="یادداشت").grid(row=4, column=1, padx=5, pady=5, sticky='e')
         self.notes_text = Text(frame, width=30, height=4, font=styles.DEFAULT_FONT)
-        self.notes_text.grid(row=4, column=0, padx=5, pady=5)
+        self.notes_text.grid(row=4, column=0, padx=5, pady=5, sticky='ew')
         
         ttkb.Button(frame, text="ذخیره فعالیت", 
-                   command=self.save_new_entry, 
-                   bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
+                      command=self.save_new_entry, 
+                      bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
 
     def save_new_entry(self):
         try:
             task = self.task_entry.get()
             cat_name = self.cat_combo.get()
             cat_id = self.master.category_map.get(cat_name)
-            start_time = datetime.strptime(self.start_entry.get(), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S')
-            end_time = datetime.strptime(self.end_entry.get(), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M:%S')
+
+            start_jalali_str = self.start_entry.get()
+            start_gregorian = jdatetime.datetime.strptime(start_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+            start_time_for_db = start_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+
+            end_jalali_str = self.end_entry.get()
+            end_gregorian = jdatetime.datetime.strptime(end_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+            end_time_for_db = end_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+            
             notes = self.notes_text.get('1.0', 'end-1c')
             
             if not task:
                 messagebox.showerror("خطا", "عنوان فعالیت نمی‌تواند خالی باشد.", parent=self)
                 return
                 
-            if start_time >= end_time:
+            if start_gregorian >= end_gregorian:
                 messagebox.showerror("خطا", "زمان پایان باید بعد از زمان شروع باشد.", parent=self)
                 return
                 
-            db.add_manual_entry(task, cat_id, start_time, end_time, notes)
+            db.add_manual_entry(task, cat_id, start_time_for_db, end_time_for_db, notes)
             self.master.refresh_main_log()
             self.destroy()
             
         except ValueError:
-            messagebox.showerror("خطا", "فرمت تاریخ یا زمان صحیح نیست.\nفرمت صحیح: YYYY-MM-DD HH:MM:SS", parent=self)
+            messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت صحیح: YYYY/MM/DD HH:MM:SS", parent=self)

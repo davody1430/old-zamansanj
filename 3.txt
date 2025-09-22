@@ -1,0 +1,718 @@
+# ==========================================================
+#  File: reports.py  (بازنویسی کامل + تطابق با استایل‌های جدید)
+# ==========================================================
+import jdatetime
+from datetime import datetime
+import json
+import csv
+import os
+import styles
+
+
+# ------------------------------------------------------------------
+# 1) دیکشنری‌های ترجمه‌ی روز و ماه (دریافت از styles)
+# ------------------------------------------------------------------
+PERSIAN_WEEKDAYS = styles.PERSIAN_WEEKDAYS
+PERSIAN_MONTHS   = styles.PERSIAN_MONTHS
+
+
+# ------------------------------------------------------------------
+# 2) قالب HTML گزارش با استایل‌های یک‌پارچه
+# ------------------------------------------------------------------
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>گزارش زمانی</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {{
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 20px;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }}
+        h1, h2 {{
+            color: #0056b3;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+        }}
+        .summary ul {{
+            list-style-type: none;
+            padding: 0;
+        }}
+        .summary li {{
+            background: #e9ecef;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 4px;
+        }}
+        .details .date-group {{
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }}
+        .details .date-header {{
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #28a745;
+        }}
+        .daily-summary {{
+            font-weight: bold;
+            color: #5a6268;
+            padding: 5px 0 10px 0;
+            margin-right: 5px;
+        }}
+        .details ul {{
+            padding-right: 20px;
+        }}
+        .details li {{
+            margin-bottom: 5px;
+        }}
+        .notes {{
+            color: #6c757d;
+            font-size: 0.9em;
+            padding-right: 15px;
+        }}
+        .chart-container {{
+            width: 60%;
+            margin: 40px auto;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 گزارش زمانی فعالیت‌ها</h1>
+
+        <div class="chart-container">
+            <h2>تخصیص زمان بر اساس دسته‌بندی</h2>
+            <canvas id="categoryChart"></canvas>
+        </div>
+
+        <div class="summary">
+            <h2>خلاصه روزانه</h2>
+            <ul>{daily_summary_section}</ul>
+        </div>
+
+        <div class="summary">
+            <h2>خلاصه فعالیت‌ها (بر اساس عنوان)</h2>
+            <ul>{summary_section}</ul>
+        </div>
+
+        <div class="details">
+            <h2>جزئیات زمانی</h2>
+            {details_section}
+        </div>
+    </div>
+
+    <script>
+        Chart.defaults.font.family = 'Vazirmatn';
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        const categoryData = {{
+            labels: {chart_labels},
+            datasets: [{{
+                label: 'ساعت',
+                data: {chart_data},
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)', 'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)',
+                    'rgba(199, 199, 199, 0.7)'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }}]
+        }};
+        new Chart(ctx, {{
+            type: 'pie',
+            data: categoryData,
+            options: {{ responsive: true, plugins: {{ legend: {{ position: 'top' }} }} }}
+        }});
+    </script>
+</body>
+</html>
+"""
+
+
+# ------------------------------------------------------------------
+# 3) فرمت زمان به فارسی
+# ------------------------------------------------------------------
+def _format_duration(total_seconds: float, show_seconds: bool = True) -> str:
+    """تبدیل ثانیه به رشتی مثل '۲ ساعت و ۱۵ دقیقه'"""
+    if total_seconds < 0:
+        total_seconds = 0
+
+    hours, rem = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+
+    parts = []
+    if int(hours) > 0:
+        parts.append(f"{int(hours)} ساعت")
+    if int(minutes) > 0:
+        parts.append(f"{int(minutes)} دقیقه")
+    if show_seconds and int(seconds) > 0:
+        parts.append(f"{int(seconds)} ثانیه")
+
+    if not parts:
+        return "۰ دقیقه" if not show_seconds else "۰ ثانیه"
+
+    return " و ".join(parts)
+
+
+# ------------------------------------------------------------------
+# 4) تولید خروجی HTML
+# ------------------------------------------------------------------
+def generate_html_report(entries: list) -> str:
+    """دریافت لیست رکوردها و بازگرداندن رشته‌ی HTML کامل"""
+    if not entries:
+        return HTML_TEMPLATE.format(
+            daily_summary_section="<li>هیچ فعالیتی یافت نشد.</li>",
+            summary_section="<li>هیچ فعالیتی یافت نشد.</li>",
+            details_section="<p>داده‌ای یافت نشد.</p>",
+            chart_labels="[]",
+            chart_data="[]"
+        )
+
+    summary_tasks: dict[str, float] = {}
+    summary_categories: dict[str, float] = {}
+    details_by_date: dict[datetime.date, list[dict]] = {}
+
+    for entry in entries:
+        _, task_name, category, start_str, end_str, notes = entry
+        category = category or "بدون دسته"
+        if not (start_str and end_str):
+            continue
+
+        start_dt = datetime.strptime(start_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
+        end_dt = datetime.strptime(end_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
+        duration_sec = (end_dt - start_dt).total_seconds()
+
+        summary_tasks[task_name] = summary_tasks.get(task_name, 0.0) + duration_sec
+        summary_categories[category] = summary_categories.get(category, 0.0) + duration_sec
+
+        date_key = start_dt.date()
+        details_by_date.setdefault(date_key, []).append({
+            "start_time": start_dt.strftime("%H:%M"),
+            "end_time": end_dt.strftime("%H:%M"),
+            "duration_seconds": duration_sec,
+            "task_name": task_name,
+            "notes": notes.strip() if notes else None
+        })
+
+    # ----------------------------------------------------------
+    # ساخت بخش خلاصه‌ی فعالیت‌ها (بر اساس عنوان)
+    # ----------------------------------------------------------
+    summary_html = ""
+    for task, sec in sorted(summary_tasks.items()):
+        summary_html += f"<li>مجموع '{task}': {_format_duration(sec, show_seconds=False)}</li>\n"
+
+    # ----------------------------------------------------------
+    # ساخت بخش خلاصه‌ی روزانه
+    # ----------------------------------------------------------
+    daily_summary_html = ""
+    for date_obj in sorted(details_by_date.keys()):
+        jalali_date = jdatetime.date.fromgregorian(date=date_obj)
+        persian_day = PERSIAN_WEEKDAYS.get(date_obj.strftime("%A"), date_obj.strftime("%A"))
+        total_day_sec = sum(item["duration_seconds"] for item in details_by_date[date_obj])
+        daily_summary_html += (
+            f"<li>🗓️ {jalali_date.strftime('%Y/%m/%d')} {persian_day}: "
+            f"{_format_duration(total_day_sec)}</li>\n"
+        )
+
+    # ----------------------------------------------------------
+    # ساخت بخش جزئیات
+    # ----------------------------------------------------------
+    details_html = ""
+    for date_obj in sorted(details_by_date.keys()):
+        jalali_date = jdatetime.date.fromgregorian(date=date_obj)
+        persian_day = PERSIAN_WEEKDAYS.get(date_obj.strftime("%A"), date_obj.strftime("%A"))
+        total_day_sec = sum(item["duration_seconds"] for item in details_by_date[date_obj])
+
+        details_html += (
+            f'<div class="date-group">\n'
+            f'<p class="date-header">🗓️ {jalali_date.strftime("%Y/%m/%d")} {persian_day}</p>\n'
+            f'<p class="daily-summary">مجموع فعالیت‌های روز: {_format_duration(total_day_sec, show_seconds=False)}</p>\n<ul>'
+        )
+
+        for item in sorted(details_by_date[date_obj], key=lambda x: x["start_time"]):
+            dur_txt = _format_duration(item["duration_seconds"], show_seconds=True)
+            details_html += (
+                f"<li>{item['task_name']} ({dur_txt}) | "
+                f"از {item['start_time']} تا {item['end_time']}</li>\n"
+            )
+            if item["notes"]:
+                details_html += f"<li class='notes'>یادداشت: {item['notes']}</li>\n"
+
+        details_html += "</ul>\n</div>\n"
+
+    # ----------------------------------------------------------
+    # داده‌های نمودار
+    # ----------------------------------------------------------
+    chart_labels = list(summary_categories.keys())
+    chart_data = [round(sec / 3600, 2) for sec in summary_categories.values()]
+
+    # ----------------------------------------------------------
+    # پر کردن قالب و بازگرداندن HTML نهایی
+    # ----------------------------------------------------------
+    return HTML_TEMPLATE.format(
+        daily_summary_section=daily_summary_html,
+        summary_section=summary_html,
+        details_section=details_html,
+        chart_labels=json.dumps(chart_labels, ensure_ascii=False),
+        chart_data=json.dumps(chart_data)
+    )
+
+
+# ------------------------------------------------------------------
+# 5) خروجی CSV
+# ------------------------------------------------------------------
+def export_to_csv(entries: list, file_path: str) -> str:
+    """ذخیره‌ی رکوردها در فایل CSV"""
+    headers = ["id", "task_name", "category", "start_time", "end_time", "notes"]
+
+    with open(file_path, "w", newline="", encoding="utf-8-sig") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(headers)
+        writer.writerows(entries)
+
+    return f"گزارش با موفقیت در {file_path} ذخیره شد."
+
+
+
+
+
+import ttkbootstrap as ttkb
+from tkinter import messagebox, simpledialog, Toplevel, filedialog, Text
+import database as db
+import reports
+from datetime import datetime, timedelta
+import jdatetime
+import styles
+import webbrowser
+import os
+from custom_widgets import DateEntry
+
+import ttkbootstrap as ttkb
+from tkinter import messagebox, simpledialog, Toplevel
+import database as db
+import styles
+
+
+import ttkbootstrap as ttkb
+from tkinter import messagebox, simpledialog, Toplevel
+import database as db
+import styles
+
+
+import ttkbootstrap as ttkb
+from tkinter import messagebox, simpledialog, Toplevel, Menu
+import database as db
+import styles
+
+
+class CategoryManagerWindow(Toplevel):
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        self.title("مدیریت دسته‌ها")
+        self.transient(master)
+        self.grab_set()
+        self.geometry("330x360")
+        self.resizable(False, False)
+
+        # Treeview -------------------------------------------------
+        self.tree = ttkb.Treeview(
+            self, columns=("id", "name"), show="headings", height=11
+        )
+        self.tree.heading("id", text="شناسه")
+        self.tree.heading("name", text="نام دسته")
+        self.tree.column("id", width=70, anchor="center")
+        self.tree.column("name", width=240, anchor="e")
+        self.tree.pack(padx=10, pady=5)
+
+        # دکمه‌ها --------------------------------------------------
+        btn_frame = ttkb.Frame(self)
+        btn_frame.pack(pady=7)
+        ttkb.Button(
+            btn_frame, text="افزودن", command=self.add_new,
+            bootstyle="success-outline", width=8
+        ).pack(side="right", padx=4)
+        ttkb.Button(
+            btn_frame, text="ویرایش", command=self.edit_selected,
+            bootstyle="warning-outline", width=8
+        ).pack(side="right", padx=4)
+        ttkb.Button(
+            btn_frame, text="حذف", command=self.delete_selected,
+            bootstyle="danger-outline", width=8
+        ).pack(side="right", padx=4)
+
+        # منوی راست-کلیک ------------------------------------------
+        self.popup = Menu(self, tearoff=0)
+        self.popup.add_command(label="ویرایش", command=self.edit_selected)
+        self.popup.add_command(label="حذف", command=self.delete_selected)
+        self.tree.bind("<Button-3>", self.show_popup)
+
+        # پر کردن اولیه
+        self.refresh_list()
+
+    # -----------------------------------------------------------
+    def show_popup(self, event):
+        """نمایش منو در محل اشاره‌گر ماوس"""
+        item = self.tree.identify_row(event.y)
+        if item:
+            self.tree.selection_set(item)
+            self.popup.tk_popup(event.x_root, event.y_root)
+
+    def refresh_list(self):
+        """خالی کردن و دوباره پر کردن Treeview"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for cat_id, name in db.get_categories():
+            self.tree.insert("", "end", values=(cat_id, name))
+
+    def add_new(self):
+        name = simpledialog.askstring(
+            "افزودن دسته", "نام دسته جدید:", parent=self
+        )
+        if name and name.strip():
+            if db.get_category_id_by_name(name.strip()) is None:
+                db.add_category(name.strip())
+                self.refresh_list()
+                self.master.populate_categories()  # ComboBox اصلی
+                messagebox.showinfo("موفقیت", "دسته افزوده شد.", parent=self)
+            else:
+                messagebox.showerror("خطا", "نام تکراری است.", parent=self)
+
+    def edit_selected(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("انتخاب نشده", "یک دسته را انتخاب کنید.", parent=self)
+            return
+        cat_id, old_name = self.tree.item(sel[0])["values"]
+        new_name = simpledialog.askstring(
+            "ویرایش دسته", f"نام جدید برای '{old_name}':",
+            initialvalue=old_name, parent=self
+        )
+        if new_name and new_name.strip() and new_name != old_name:
+            ok = db.update_category_name(cat_id, new_name.strip())
+            if ok:
+                self.refresh_list()
+                self.master.populate_categories()
+                messagebox.showinfo("موفقیت", "دسته ویرایش شد.", parent=self)
+            else:
+                messagebox.showerror("خطا", "نام تکراری است.", parent=self)
+
+    def delete_selected(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("انتخاب نشده", "یک دسته را انتخاب کنید.", parent=self)
+            return
+        cat_id, cat_name = self.tree.item(sel[0])["values"]
+        if db.is_category_used(cat_id):
+            messagebox.showerror("خطا", "دسته در فعالیت‌ها استفاده شده و قابل حذف نیست.", parent=self)
+            return
+        if messagebox.askyesno("تأیید", f"دسته '{cat_name}' حذف شود؟", parent=self):
+            db.delete_category(cat_id)
+            self.refresh_list()
+            self.master.populate_categories()
+            messagebox.showinfo("موفقیت", "دسته حذف شد.", parent=self)
+
+class ReportGeneratorWindow(Toplevel):
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        self.title("ساخت گزارش")
+        self.transient(master)
+        self.grab_set()
+
+        self.geometry("350x280")
+        self.resizable(False, False)
+
+        # ---------------------- فریم اصلی ----------------------
+        main_frame = ttkb.Frame(self, padding=15)
+        main_frame.pack(fill="both", expand=True)
+
+        # ---------------------- فیلدهای تاریخ ----------------------
+        ttkb.Label(main_frame, text="از تاریخ (مثال: ۱۴۰۴/۰۶/۰۱)").grid(row=0, column=1, sticky="e", padx=5, pady=5)
+        self.start_date_entry = DateEntry(main_frame, justify="center", width=14)
+        start_default = jdatetime.date.today() - jdatetime.timedelta(days=7)
+        self.start_date_entry.set(start_default.strftime("%Y/%m/%d"))
+        self.start_date_entry.grid(row=0, column=0, padx=5, pady=5)
+
+        ttkb.Label(main_frame, text="تا تاریخ (مثال: ۱۴۰۴/۰۶/۳۰)").grid(row=1, column=1, sticky="e", padx=5, pady=5)
+        self.end_date_entry = DateEntry(main_frame, justify="center", width=14)
+        end_default = jdatetime.date.today()
+        self.end_date_entry.set(end_default.strftime("%Y/%m/%d"))
+        self.end_date_entry.grid(row=1, column=0, padx=5, pady=5)
+
+        # ---------------------- دکمه‌های خروجی ----------------------
+        btn_frame = ttkb.Frame(main_frame)
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=20)
+
+        ttkb.Button(
+            btn_frame,
+            text="گزارش HTML",
+            command=self.generate_and_show_report,
+            bootstyle=styles.BTN_PRIMARY,
+            width=12
+        ).pack(side="right", padx=5)
+
+        ttkb.Button(
+            btn_frame,
+            text="خروجی CSV",
+            command=self.export_csv,
+            bootstyle=styles.BTN_SECONDARY,
+            width=12
+        ).pack(side="right", padx=5)
+
+    # ------------------------------------------------------------------
+    def _get_gregorian_range(self) -> tuple[str, str] | tuple[None, None]:
+        """برگرداندن بازه‌ی میلادی برای کوئری یا None در صورت خطا"""
+        try:
+            start_j = self.start_date_entry.get()
+            end_j = self.end_date_entry.get()
+            if "Y" in start_j or "Y" in end_j:
+                raise ValueError
+
+            start_g = jdatetime.datetime.strptime(start_j, "%Y/%m/%d").togregorian().date()
+            end_g = jdatetime.datetime.strptime(end_j, "%Y/%m/%d").togregorian().date()
+
+            start_db = start_g.strftime("%Y-%m-%d")
+            end_db = (end_g + timedelta(days=1)).strftime("%Y-%m-%d")
+            return start_db, end_db
+        except (ValueError, AttributeError):
+            messagebox.showerror(
+                "خطای فرمت",
+                "فرمت تاریخ شمسی صحیح نیست.\nلطفاً از فرمت YYYY/MM/DD استفاده کنید.",
+                parent=self
+            )
+            return None, None
+
+    # ------------------------------------------------------------------
+    def generate_and_show_report(self) -> None:
+        start_db, end_db = self._get_gregorian_range()
+        if not start_db:
+            return
+
+        entries = db.get_entries_by_date_range(start_db, end_db)
+        if not entries:
+            messagebox.showinfo("اطلاعات", "داده‌ای برای ساخت گزارش در این بازه وجود ندارد.", parent=self)
+            return
+
+        html = reports.generate_html_report(entries)
+        try:
+            os.makedirs("reports_output", exist_ok=True)
+            stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            file_path = os.path.join("reports_output", f"report_{stamp}.html")
+
+            with open(file_path, "w", encoding="utf-8-sig") as f:
+                f.write(html)
+
+            webbrowser.open("file://" + os.path.abspath(file_path))
+            messagebox.showinfo("موفق", f"گزارش HTML در پوشه‌ی reports_output ذخیره و باز شد.", parent=self)
+        except Exception as e:
+            messagebox.showerror("خطا", f"خطا در ساخت یا باز کردن فایل گزارش:\n{e}", parent=self)
+
+    # ------------------------------------------------------------------
+    def export_csv(self) -> None:
+        start_db, end_db = self._get_gregorian_range()
+        if not start_db:
+            return
+
+        entries = db.get_entries_by_date_range(start_db, end_db)
+        if not entries:
+            messagebox.showinfo("اطلاعات", "داده‌ای برای خروجی در این بازه وجود ندارد.", parent=self)
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="ذخیره‌ی گزارش CSV"
+        )
+        if file_path:
+            msg = reports.export_to_csv(entries, file_path)
+            messagebox.showinfo("موفق", msg, parent=self)
+
+class EditEntryWindow(Toplevel):
+    def __init__(self, master, entry_id):
+        super().__init__(master)
+        self.master = master
+        self.entry_id = entry_id
+        self.title("ویرایش فعالیت")
+        self.transient(master)
+        self.grab_set()
+        
+        self.update_idletasks()
+        width = 450
+        height = 400
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+        
+        entry_data = db.get_entry_by_id(self.entry_id)
+        if not entry_data:
+            self.destroy()
+            return
+            
+        _, task_name, category_id, start_time_str, end_time_str, notes = entry_data
+        
+        frame = ttkb.Frame(self, padding="10")
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        
+        ttkb.Label(frame, text="عنوان").grid(row=0, column=1, padx=5, pady=5, sticky='e')
+        self.task_entry = ttkb.Entry(frame, width=40, justify='right', font=styles.DEFAULT_FONT)
+        self.task_entry.insert(0, task_name)
+        self.task_entry.grid(row=0, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="دسته").grid(row=1, column=1, padx=5, pady=5, sticky='e')
+        self.cat_combo = ttkb.Combobox(frame, state="readonly", 
+                                      values=[''] + list(self.master.category_map.keys()), 
+                                      justify='right', font=styles.DEFAULT_FONT)
+        self.cat_combo.set(self.master.id_to_category_map.get(category_id, ''))
+        self.cat_combo.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="زمان شروع (شمسی)").grid(row=2, column=1, padx=5, pady=5, sticky='e')
+        self.start_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
+        start_gregorian = datetime.strptime(start_time_str, '%Y-%m-%d %H:%M:%S')
+        start_jalali = jdatetime.datetime.fromgregorian(datetime=start_gregorian)
+        self.start_entry.insert(0, start_jalali.strftime('%Y/%m/%d %H:%M:%S'))
+        self.start_entry.grid(row=2, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="زمان پایان (شمسی)").grid(row=3, column=1, padx=5, pady=5, sticky='e')
+        self.end_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
+        if end_time_str:
+            end_gregorian = datetime.strptime(end_time_str, '%Y-%m-%d %H:%M:%S')
+            end_jalali = jdatetime.datetime.fromgregorian(datetime=end_gregorian)
+            self.end_entry.insert(0, end_jalali.strftime('%Y/%m/%d %H:%M:%S'))
+        self.end_entry.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="یادداشت").grid(row=4, column=1, padx=5, pady=5, sticky='e')
+        self.notes_text = Text(frame, width=30, height=4, font=styles.DEFAULT_FONT)
+        self.notes_text.grid(row=4, column=0, padx=5, pady=5, sticky='ew')
+        if notes:
+            self.notes_text.insert('1.0', notes)
+        
+        ttkb.Button(frame, text="ذخیره تغییرات", 
+                      command=self.save_changes, 
+                      bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
+
+    def save_changes(self):
+        try:
+            new_task = self.task_entry.get()
+            new_cat_name = self.cat_combo.get()
+            new_cat_id = self.master.category_map.get(new_cat_name)
+            
+            start_jalali_str = self.start_entry.get()
+            start_gregorian = jdatetime.datetime.strptime(start_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+            new_start = start_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+
+            end_jalali_str = self.end_entry.get()
+            new_end = None
+            if end_jalali_str.strip():
+                end_gregorian = jdatetime.datetime.strptime(end_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+                new_end = end_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+            
+            new_notes = self.notes_text.get('1.0', 'end-1c')
+            
+            if not new_task:
+                messagebox.showerror("خطا", "عنوان فعالیت نمی‌تواند خالی باشد.", parent=self)
+                return
+                
+            db.update_entry(self.entry_id, new_task, new_cat_id, new_start, new_end, new_notes)
+            self.master.refresh_main_log()
+            self.destroy()
+            
+        except ValueError:
+            messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت صحیح: YYYY/MM/DD HH:MM:SS", parent=self)
+
+class AddManualEntryWindow(Toplevel):
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        self.title("افزودن دستی فعالیت")
+        self.transient(master)
+        self.grab_set()
+        
+        self.update_idletasks()
+        width = 450
+        height = 400
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+
+        frame = ttkb.Frame(self, padding="10")
+        frame.pack(fill="both", expand=True)
+        frame.columnconfigure(0, weight=1)
+        
+        ttkb.Label(frame, text="عنوان").grid(row=0, column=1, padx=5, pady=5, sticky='e')
+        self.task_entry = ttkb.Entry(frame, width=40, justify='right', font=styles.DEFAULT_FONT)
+        self.task_entry.grid(row=0, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="دسته").grid(row=1, column=1, padx=5, pady=5, sticky='e')
+        self.cat_combo = ttkb.Combobox(frame, state="readonly", 
+                                      values=[''] + list(self.master.category_map.keys()), 
+                                      justify='right', font=styles.DEFAULT_FONT)
+        self.cat_combo.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="زمان شروع (شمسی)").grid(row=2, column=1, padx=5, pady=5, sticky='e')
+        self.start_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
+        now_jalali = jdatetime.datetime.now().strftime('%Y/%m/%d %H:%M:00')
+        self.start_entry.insert(0, now_jalali)
+        self.start_entry.grid(row=2, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="زمان پایان (شمسی)").grid(row=3, column=1, padx=5, pady=5, sticky='e')
+        self.end_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
+        self.end_entry.insert(0, now_jalali)
+        self.end_entry.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Label(frame, text="یادداشت").grid(row=4, column=1, padx=5, pady=5, sticky='e')
+        self.notes_text = Text(frame, width=30, height=4, font=styles.DEFAULT_FONT)
+        self.notes_text.grid(row=4, column=0, padx=5, pady=5, sticky='ew')
+        
+        ttkb.Button(frame, text="ذخیره فعالیت", 
+                      command=self.save_new_entry, 
+                      bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
+
+    def save_new_entry(self):
+        try:
+            task = self.task_entry.get()
+            cat_name = self.cat_combo.get()
+            cat_id = self.master.category_map.get(cat_name)
+
+            start_jalali_str = self.start_entry.get()
+            start_gregorian = jdatetime.datetime.strptime(start_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+            start_time_for_db = start_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+
+            end_jalali_str = self.end_entry.get()
+            end_gregorian = jdatetime.datetime.strptime(end_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
+            end_time_for_db = end_gregorian.strftime('%Y-%m-%d %H:%M:%S')
+            
+            notes = self.notes_text.get('1.0', 'end-1c')
+            
+            if not task:
+                messagebox.showerror("خطا", "عنوان فعالیت نمی‌تواند خالی باشد.", parent=self)
+                return
+                
+            if start_gregorian >= end_gregorian:
+                messagebox.showerror("خطا", "زمان پایان باید بعد از زمان شروع باشد.", parent=self)
+                return
+                
+            db.add_manual_entry(task, cat_id, start_time_for_db, end_time_for_db, notes)
+            self.master.refresh_main_log()
+            self.destroy()
+            
+        except ValueError:
+            messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت صحیح: YYYY/MM/DD HH:MM:SS", parent=self)

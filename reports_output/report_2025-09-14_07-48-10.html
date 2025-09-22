@@ -1,0 +1,138 @@
+﻿
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>گزارش زمانی</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Tahoma', sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #0056b3;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+        }
+        .summary, .details {
+            margin-bottom: 30px;
+        }
+        .summary ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .summary li {
+            background: #e9ecef;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .details .date-group {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .details .date-header {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+        /* استایل جدید برای نمایش مجموع زمان روزانه */
+        .daily-summary {
+            font-weight: bold;
+            color: #5a6268;
+            padding: 5px 0 10px 0;
+            margin-right: 5px;
+        }
+        .details ul {
+            padding-right: 20px;
+        }
+        .details li {
+            margin-bottom: 5px;
+        }
+        .notes {
+            color: #6c757d;
+            font-size: 0.9em;
+            padding-right: 15px;
+        }
+        .chart-container {
+            width: 60%;
+            margin: 40px auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 گزارش زمانی فعالیت‌ها</h1>
+        
+        <div class="chart-container">
+            <h2>تخصیص زمان بر اساس دسته‌بندی</h2>
+            <canvas id="categoryChart"></canvas>
+        </div>
+
+        <div class="summary">
+            <h2>خلاصه فعالیت‌ها</h2>
+            <ul>
+                <li>مجموع '1111122222': 0 ساعت و 0 دقیقه و 6 ثانیه</li><li>مجموع 'مباحث اعتقادي سلوک': 1 ساعت و 0 دقیقه و 0 ثانیه</li><li>مجموع 'مرتب کردن فايلها': 3 ساعت و 0 دقیقه و 0 ثانیه</li><li>مجموع 'کاسبي عارفانه': 4 ساعت و 58 دقیقه و 36 ثانیه</li><li>مجموع 'مرتب سازي و پرينت اسناد': 2 ساعت و 0 دقیقه و 0 ثانیه</li><li>مجموع 'جلسه دوره هاي کوتاه و سفر مشتري': 1 ساعت و 7 دقیقه و 0 ثانیه</li><li>مجموع 'جلسه آموزش': 0 ساعت و 40 دقیقه و 0 ثانیه</li>
+            </ul>
+        </div>
+
+        <div class="details">
+            <h2>جزئیات زمانی</h2>
+            <div class="date-group"><p class="date-header">🗓️ 1404/06/23</p><p class="daily-summary">مجموع فعالیت‌های روز: 0 ساعت و 0 دقیقه</p><ul><li>1111122222 (0 دقیقه و 6 ثانیه) | از 07:48 تا 07:48</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/18</p><p class="daily-summary">مجموع فعالیت‌های روز: 4 ساعت و 0 دقیقه</p><ul><li>مرتب کردن فايلها (180 دقیقه و 0 ثانیه) | از 12:03 تا 15:03</li><li>مباحث اعتقادي سلوک (60 دقیقه و 0 ثانیه) | از 15:04 تا 16:04</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/17</p><p class="daily-summary">مجموع فعالیت‌های روز: 3 ساعت و 3 دقیقه</p><ul><li>کاسبي عارفانه (183 دقیقه و 0 ثانیه) | از 12:20 تا 15:23</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/16</p><p class="daily-summary">مجموع فعالیت‌های روز: 5 ساعت و 42 دقیقه</p><ul><li>جلسه آموزش (40 دقیقه و 0 ثانیه) | از 10:45 تا 11:25</li><li>کاسبي عارفانه (46 دقیقه و 35 ثانیه) | از 12:26 تا 13:12</li><li>جلسه دوره هاي کوتاه و سفر مشتري (67 دقیقه و 0 ثانیه) | از 13:13 تا 14:20</li><li>مرتب سازي و پرينت اسناد (120 دقیقه و 0 ثانیه) | از 14:21 تا 16:21</li><li>کاسبي عارفانه (69 دقیقه و 1 ثانیه) | از 16:30 تا 17:39</li></ul></div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        const categoryData = {
+            labels: ["جلسه", "عمومي", "کتاب اميني خواه"],
+            datasets: [{
+                label: 'ساعت',
+                data: [1.78, 6.0, 4.98],
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)',
+                    'rgba(255, 159, 64, 0.7)',
+                    'rgba(199, 199, 199, 0.7)'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        };
+
+        new Chart(ctx, {
+            type: 'pie',
+            data: categoryData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                           font: {
+                                family: 'Tahoma'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+﻿
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>گزارش زمانی</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Tahoma', sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #0056b3;
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+        }
+        .summary, .details {
+            margin-bottom: 30px;
+        }
+        .summary ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .summary li {
+            background: #e9ecef;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .details .date-group {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .details .date-header {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+        /* استایل جدید برای نمایش مجموع زمان روزانه */
+        .daily-summary {
+            font-weight: bold;
+            color: #5a6268;
+            padding: 5px 0 10px 0;
+            margin-right: 5px;
+        }
+        .details ul {
+            padding-right: 20px;
+        }
+        .details li {
+            margin-bottom: 5px;
+        }
+        .notes {
+            color: #6c757d;
+            font-size: 0.9em;
+            padding-right: 15px;
+        }
+        .chart-container {
+            width: 60%;
+            margin: 40px auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 گزارش زمانی فعالیت‌ها</h1>
+        
+        <div class="chart-container">
+            <h2>تخصیص زمان بر اساس دسته‌بندی</h2>
+            <canvas id="categoryChart"></canvas>
+        </div>
+
+        <div class="summary">
+            <h2>خلاصه فعالیت‌ها</h2>
+            <ul>
+                <li>مجموع '1111122222': 0 ساعت و 0 دقیقه و 6 ثانیه</li><li>مجموع 'مباحث اعتقادي سلوک': 1 ساعت و 0 دقیقه و 0 ثانیه</li><li>مجموع 'مرتب کردن فايلها': 3 ساعت و 0 دقیقه و 0 ثانیه</li><li>مجموع 'کاسبي عارفانه': 23 ساعت و 1 دقیقه و 45 ثانیه</li><li>مجموع 'مرتب سازي و پرينت اسناد': 2 ساعت و 0 دقیقه و 0 ثانیه</li><li>مجموع 'جلسه دوره هاي کوتاه و سفر مشتري': 1 ساعت و 7 دقیقه و 0 ثانیه</li><li>مجموع 'جلسه آموزش': 1 ساعت و 30 دقیقه و 0 ثانیه</li><li>مجموع 'پيام براي دوره دو هفته براي خودت': 0 ساعت و 18 دقیقه و 49 ثانیه</li><li>مجموع 'نظم دهي به ترلو': 2 ساعت و 26 دقیقه و 24 ثانیه</li><li>مجموع 'جلسه پيرامون mvp با  آقاي روحبخش': 1 ساعت و 36 دقیقه و 53 ثانیه</li><li>مجموع 'ميدان تبيين': 4 ساعت و 39 دقیقه و 55 ثانیه</li><li>مجموع 'نماز': 0 ساعت و 35 دقیقه و 0 ثانیه</li><li>مجموع 'پيگيري مصوبات و ...': 0 ساعت و 41 دقیقه و 0 ثانیه</li><li>مجموع 'آماده سازي منبع چت هوشمند': 0 ساعت و 51 دقیقه و 32 ثانیه</li><li>مجموع 'بررسي کار خانم مطهري- آداب مهماني': 0 ساعت و 10 دقیقه و 37 ثانیه</li><li>مجموع 'گزارش جلسه پژوهش': 0 ساعت و 7 دقیقه و 13 ثانیه</li><li>مجموع 'بودجه بندي جلسات ترم': 0 ساعت و 25 دقیقه و 40 ثانیه</li><li>مجموع 'بررسي فصل اول به وقت شام': 0 ساعت و 46 دقیقه و 0 ثانیه</li>
+            </ul>
+        </div>
+
+        <div class="details">
+            <h2>جزئیات زمانی</h2>
+            <div class="date-group"><p class="date-header">🗓️ 1404/06/23</p><p class="daily-summary">مجموع فعالیت‌های روز: 0 ساعت و 0 دقیقه</p><ul><li>1111122222 (0 دقیقه و 6 ثانیه) | از 07:48 تا 07:48</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/18</p><p class="daily-summary">مجموع فعالیت‌های روز: 4 ساعت و 0 دقیقه</p><ul><li>مرتب کردن فايلها (180 دقیقه و 0 ثانیه) | از 12:03 تا 15:03</li><li>مباحث اعتقادي سلوک (60 دقیقه و 0 ثانیه) | از 15:04 تا 16:04</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/17</p><p class="daily-summary">مجموع فعالیت‌های روز: 3 ساعت و 3 دقیقه</p><ul><li>کاسبي عارفانه (183 دقیقه و 0 ثانیه) | از 12:20 تا 15:23</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/16</p><p class="daily-summary">مجموع فعالیت‌های روز: 5 ساعت و 42 دقیقه</p><ul><li>جلسه آموزش (40 دقیقه و 0 ثانیه) | از 10:45 تا 11:25</li><li>کاسبي عارفانه (46 دقیقه و 35 ثانیه) | از 12:26 تا 13:12</li><li>جلسه دوره هاي کوتاه و سفر مشتري (67 دقیقه و 0 ثانیه) | از 13:13 تا 14:20</li><li>مرتب سازي و پرينت اسناد (120 دقیقه و 0 ثانیه) | از 14:21 تا 16:21</li><li>کاسبي عارفانه (69 دقیقه و 1 ثانیه) | از 16:30 تا 17:39</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/15</p><p class="daily-summary">مجموع فعالیت‌های روز: 4 ساعت و 22 دقیقه</p><ul><li>جلسه پيرامون mvp با  آقاي روحبخش (96 دقیقه و 53 ثانیه) | از 12:56 تا 14:33</li><li>نظم دهي به ترلو (146 دقیقه و 24 ثانیه) | از 14:34 تا 17:00</li><li>پيام براي دوره دو هفته براي خودت (18 دقیقه و 49 ثانیه) | از 17:01 تا 17:20</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/13</p><p class="daily-summary">مجموع فعالیت‌های روز: 5 ساعت و 34 دقیقه</p><ul><li>کاسبي عارفانه (334 دقیقه و 0 ثانیه) | از 08:00 تا 13:34</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/12</p><p class="daily-summary">مجموع فعالیت‌های روز: 7 ساعت و 15 دقیقه</p><ul><li>کاسبي عارفانه (435 دقیقه و 0 ثانیه) | از 08:45 تا 16:00</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/10</p><p class="daily-summary">مجموع فعالیت‌های روز: 5 ساعت و 14 دقیقه</p><ul><li>کاسبي عارفانه (42 دقیقه و 8 ثانیه) | از 09:17 تا 10:00</li><li>کاسبي عارفانه (202 دقیقه و 33 ثانیه) | از 11:51 تا 15:13</li><li>کاسبي عارفانه (69 دقیقه و 28 ثانیه) | از 15:14 تا 16:23</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/09</p><p class="daily-summary">مجموع فعالیت‌های روز: 5 ساعت و 28 دقیقه</p><ul><li>ميدان تبيين (44 دقیقه و 0 ثانیه) | از 09:16 تا 10:00</li><li>جلسه آموزش (50 دقیقه و 0 ثانیه) | از 10:30 تا 11:20</li><li>نماز (35 دقیقه و 0 ثانیه) | از 11:30 تا 12:05</li><li>ميدان تبيين (90 دقیقه و 0 ثانیه) | از 12:10 تا 13:40</li><li>ميدان تبيين (14 دقیقه و 57 ثانیه) | از 13:43 تا 13:58</li><li>ميدان تبيين (35 دقیقه و 40 ثانیه) | از 14:17 تا 14:53</li><li>ميدان تبيين (59 دقیقه و 19 ثانیه) | از 15:53 تا 16:53</li></ul></div><div class="date-group"><p class="date-header">🗓️ 1404/06/08</p><p class="daily-summary">مجموع فعالیت‌های روز: 3 ساعت و 38 دقیقه</p><ul><li>بررسي فصل اول به وقت شام (46 دقیقه و 0 ثانیه) | از 08:20 تا 09:06</li><li>بودجه بندي جلسات ترم (25 دقیقه و 40 ثانیه) | از 09:06 تا 09:32</li><li>گزارش جلسه پژوهش (7 دقیقه و 13 ثانیه) | از 09:33 تا 09:40</li><li>بررسي کار خانم مطهري- آداب مهماني (10 دقیقه و 37 ثانیه) | از 09:41 تا 09:51</li><li>آماده سازي منبع چت هوشمند (51 دقیقه و 32 ثانیه) | از 12:10 تا 13:01</li><li>پيگيري مصوبات و ... (41 دقیقه و 0 ثانیه) | از 13:02 تا 13:43</li><li>ميدان تبيين (35 دقیقه و 59 ثانیه) | از 13:44 تا 14:20</li></ul></div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        const categoryData = {
+            labels: ["جلسه", "عمومي", "کتاب اميني خواه", "کتاب تاليفي", "نماز و ...", "کتاب راه روشن", "اداري ( ثبت گزارش و ...)", "مباحث اعتقادي شذرات"],
+            datasets: [{
+                label: 'ساعت',
+                data: [2.62, 11.91, 23.8, 4.67, 0.58, 0.18, 0.12, 0.43],
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)',
+                    'rgba(153, 102, 255, 0.7)',
+                    'rgba(255, 159, 64, 0.7)',
+                    'rgba(199, 199, 199, 0.7)'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        };
+
+        new Chart(ctx, {
+            type: 'pie',
+            data: categoryData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                           font: {
+                                family: 'Tahoma'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
