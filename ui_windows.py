@@ -389,7 +389,7 @@ class AddManualEntryWindow(Toplevel):
         
         ttkb.Button(frame, text="تایید",
                       command=self.save_new_entry, 
-                      bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
+                      bootstyle=styles.BTN_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
 
     def save_new_entry(self):
         try:
