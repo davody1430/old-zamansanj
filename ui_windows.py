@@ -387,9 +387,9 @@ class AddManualEntryWindow(Toplevel):
         self.notes_text = Text(frame, width=30, height=4, font=styles.DEFAULT_FONT)
         self.notes_text.grid(row=4, column=0, padx=5, pady=5, sticky='ew')
         
-        ttkb.Button(frame, text="ذخیره فعالیت", 
+        ttkb.Button(frame, text="تایید",
                       command=self.save_new_entry, 
-                      bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
+                      bootstyle=styles.BTN_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
 
     def save_new_entry(self):
         try:
@@ -414,10 +414,11 @@ class AddManualEntryWindow(Toplevel):
             if start_gregorian >= end_gregorian:
                 messagebox.showerror("خطا", "زمان پایان باید بعد از زمان شروع باشد.", parent=self)
                 return
-                
-            db.add_manual_entry(task, cat_id, start_time_for_db, end_time_for_db, notes)
-            self.master.refresh_main_log()
-            self.destroy()
-            
+
+            if messagebox.askyesno("تایید", "آیا از افزودن این فعالیت اطمینان دارید؟", parent=self):
+                db.add_manual_entry(task, cat_id, start_time_for_db, end_time_for_db, notes)
+                self.master.refresh_main_log()
+                self.destroy()
+
         except ValueError:
             messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت صحیح: YYYY/MM/DD HH:MM:SS", parent=self)
