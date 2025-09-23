@@ -312,7 +312,7 @@ class EditEntryWindow(Toplevel):
         
         ttkb.Button(frame, text="ذخیره تغییرات", 
                       command=self.save_changes, 
-                      bootstyle=styles.BUTTON_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
+                      bootstyle=styles.BTN_PRIMARY).grid(row=5, column=0, columnspan=2, pady=10)
 
     def save_changes(self):
         try:
