@@ -62,17 +62,6 @@ def setup_database() -> None:
             )
         """)
 
-        # جدول اهداف
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS goals (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                category_id INTEGER NOT NULL UNIQUE,
-                period      TEXT NOT NULL, -- 'weekly' or 'monthly'
-                target_hours REAL NOT NULL,
-                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
-            )
-        """)
-
 
 # ------------------------------------------------------------------
 # 4) عملیات مربوط به جدول categories
@@ -276,71 +265,3 @@ def search_entries_by_keyword(keyword: str) -> List[tuple]:
         """
         cursor.execute(query, (search_term, search_term))
         return cursor.fetchall()
-
-
-# ------------------------------------------------------------------
-# 6) عملیات مربوط به جدول goals
-# ------------------------------------------------------------------
-def add_goal(category_id: int, period: str, target_hours: float) -> bool:
-    """افزودن هدف جدید. در صورت موفقیت True"""
-    try:
-        with Connection() as conn:
-            conn.execute(
-                "INSERT INTO goals (category_id, period, target_hours) VALUES (?, ?, ?)",
-                (category_id, period, target_hours)
-            )
-            return True
-    except sqlite3.IntegrityError:
-        # A goal for this category already exists
-        return False
-
-
-def update_goal(goal_id: int, period: str, target_hours: float) -> bool:
-    """به‌روزرسانی یک هدف موجود"""
-    with Connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE goals SET period = ?, target_hours = ? WHERE id = ?",
-            (period, target_hours, goal_id)
-        )
-        return cursor.rowcount > 0
-
-
-def get_all_goals() -> List[Tuple[int, int, str, str, float]]:
-    """دریافت لیست تمام اهداف با نام دسته"""
-    with Connection() as conn:
-        cursor = conn.cursor()
-        query = """
-            SELECT g.id, g.category_id, c.name, g.period, g.target_hours
-            FROM goals g
-            JOIN categories c ON g.category_id = c.id
-            ORDER BY c.name
-        """
-        cursor.execute(query)
-        return cursor.fetchall()
-
-
-def delete_goal(goal_id: int) -> bool:
-    """حذف یک هدف بر اساس شناسه"""
-    with Connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
-        return cursor.rowcount > 0
-
-def get_time_sum_for_category(category_id: int, start_date: str, end_date: str) -> float:
-    """
-    محاسبه مجموع زمان (بر حسب ثانیه) برای یک دسته خاص در بازه زمانی.
-    """
-    with Connection() as conn:
-        cursor = conn.cursor()
-        query = """
-            SELECT SUM(JULIANDAY(end_time) - JULIANDAY(start_time))
-            FROM time_entries
-            WHERE category_id = ?
-              AND start_time >= ?
-              AND end_time < ?
-              AND end_time IS NOT NULL
-        """
-        cursor.execute(query, (category_id, start_date, end_date))
-        result = cursor.fetchone()[0]
-        return (result * 86400) if result else 0.0  # Convert days to seconds
