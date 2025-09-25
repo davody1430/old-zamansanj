@@ -248,8 +248,10 @@ class TimeTrackerApp(ttkb.Window):
         self.main_log_tree.bind("<Button-3>", self.show_treeview_menu)
 
         # --- تب اهداف ---
-        self.goals_frame = ScrolledFrame(notebook, autohide=True)
-        notebook.add(self.goals_frame, text=" اهداف هفتگی/ماهانه ")
+        goals_tab_frame = ttkb.Frame(notebook, padding=15)
+        notebook.add(goals_tab_frame, text=" اهداف هفتگی/ماهانه ")
+        self.goals_frame = ScrolledFrame(goals_tab_frame, autohide=True)
+        self.goals_frame.pack(fill="both", expand=True)
 
         # ---------------------------------------------
         # دکمه‌های پایینی (افزودن دستی / گزارش)
