@@ -9,23 +9,6 @@ import webbrowser
 import os
 from custom_widgets import DateEntry
 
-import ttkbootstrap as ttkb
-from tkinter import messagebox, simpledialog, Toplevel
-import database as db
-import styles
-
-
-import ttkbootstrap as ttkb
-from tkinter import messagebox, simpledialog, Toplevel
-import database as db
-import styles
-
-
-import ttkbootstrap as ttkb
-from tkinter import messagebox, simpledialog, Toplevel, Menu
-import database as db
-import styles
-
 
 class CategoryManagerWindow(Toplevel):
     def __init__(self, master):
@@ -343,182 +326,6 @@ class EditEntryWindow(Toplevel):
         except ValueError:
             messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت صحیح: YYYY/MM/DD HH:MM:SS", parent=self)
 
-
-class GoalManagerWindow(Toplevel):
-    """پنجره‌ی مدیریت اهداف (افزودن، ویرایش، حذف)"""
-    def __init__(self, master):
-        super().__init__(master)
-        self.master = master
-        self.title("مدیریت اهداف")
-        self.transient(master)
-        self.grab_set()
-        self.geometry("450x400")
-        self.resizable(False, False)
-
-        # Treeview برای نمایش اهداف
-        self.tree = ttkb.Treeview(
-            self,
-            columns=("id", "cat_name", "period", "target"),
-            show="headings"
-        )
-        self.tree.heading("id", text="شناسه")
-        self.tree.heading("cat_name", text="دسته‌بندی")
-        self.tree.heading("period", text="دوره")
-        self.tree.heading("target", text="ساعت هدف")
-
-        self.tree.column("id", width=50, anchor="center")
-        self.tree.column("cat_name", width=150, anchor="e")
-        self.tree.column("period", width=100, anchor="center")
-        self.tree.column("target", width=100, anchor="center")
-        self.tree.pack(padx=10, pady=10, fill="both", expand=True)
-
-        # دکمه‌ها
-        btn_frame = ttkb.Frame(self)
-        btn_frame.pack(pady=10)
-        ttkb.Button(btn_frame, text="افزودن", command=self.add_new_goal, bootstyle="success-outline").pack(side="right", padx=5)
-        ttkb.Button(btn_frame, text="ویرایش", command=self.edit_selected_goal, bootstyle="warning-outline").pack(side="right", padx=5)
-        ttkb.Button(btn_frame, text="حذف", command=self.delete_selected_goal, bootstyle="danger-outline").pack(side="right", padx=5)
-
-        self.refresh_goals_list()
-
-    def refresh_goals_list(self):
-        """بازخوانی و نمایش لیست اهداف در Treeview"""
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-        all_goals = db.get_all_goals()
-        for goal in all_goals:
-            goal_id, _, cat_name, period, target = goal
-            period_fa = "هفتگی" if period == 'weekly' else "ماهانه"
-            self.tree.insert("", "end", iid=goal_id, values=(goal_id, cat_name, period_fa, f"{target:.1f}"))
-
-    def add_new_goal(self):
-        """باز کردن دیالوگ برای افزودن هدف جدید"""
-        GoalEditDialog(self, "افزودن هدف جدید")
-
-    def edit_selected_goal(self):
-        """باز کردن دیالوگ برای ویرایش هدف انتخاب‌شده"""
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("انتخاب نشده", "لطفاً یک هدف را برای ویرایش انتخاب کنید.", parent=self)
-            return
-        goal_id = selected[0]
-        GoalEditDialog(self, "ویرایش هدف", goal_id=goal_id)
-
-    def delete_selected_goal(self):
-        """حذف هدف انتخاب‌شده"""
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showwarning("انتخاب نشده", "لطفاً یک هدف را برای حذف انتخاب کنید.", parent=self)
-            return
-        goal_id = selected[0]
-        values = self.tree.item(goal_id, "values")
-        cat_name, period = values[1], values[2]
-
-        if messagebox.askyesno("تأیید حذف", f"آیا از حذف هدف '{cat_name} ({period})' اطمینان دارید؟", parent=self):
-            db.delete_goal(goal_id)
-            self.refresh_goals_list()
-            messagebox.showinfo("موفقیت", "هدف با موفقیت حذف شد.", parent=self)
-
-
-class GoalEditDialog(Toplevel):
-    """دیالوگ برای افزودن یا ویرایش یک هدف"""
-    def __init__(self, master, title, goal_id=None):
-        super().__init__(master)
-        self.master_window = master
-        self.goal_id = goal_id
-        self.title(title)
-        self.transient(master)
-        self.grab_set()
-        self.geometry("350x200")
-        self.resizable(False, False)
-
-        # واکشی دسته‌بندی‌هایی که هنوز هدف ندارند
-        existing_goal_cat_ids = {g[1] for g in db.get_all_goals()}
-        all_categories = db.get_categories()
-
-        # اگر در حال ویرایش هستیم، دسته‌بندی فعلی را هم مجاز کن
-        current_cat_id = None
-        if self.goal_id:
-            for g in db.get_all_goals():
-                if g[0] == int(self.goal_id):
-                    current_cat_id = g[1]
-                    break
-
-        self.available_categories = {
-            name: cat_id for cat_id, name in all_categories
-            if cat_id not in existing_goal_cat_ids or cat_id == current_cat_id
-        }
-
-        # فریم اصلی
-        frame = ttkb.Frame(self, padding=15)
-        frame.pack(fill="both", expand=True)
-
-        # فیلدها
-        ttkb.Label(frame, text="دسته‌بندی:").grid(row=0, column=1, sticky="e", pady=5)
-        self.cat_combo = ttkb.Combobox(frame, state="readonly", justify="right", values=list(self.available_categories.keys()))
-        self.cat_combo.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
-
-        ttkb.Label(frame, text="دوره:").grid(row=1, column=1, sticky="e", pady=5)
-        self.period_combo = ttkb.Combobox(frame, state="readonly", justify="right", values=["هفتگی", "ماهانه"])
-        self.period_combo.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
-
-        ttkb.Label(frame, text="ساعت هدف:").grid(row=2, column=1, sticky="e", pady=5)
-        self.hours_entry = ttkb.Entry(frame, justify="center")
-        self.hours_entry.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
-
-        # پر کردن مقادیر اولیه در حالت ویرایش
-        if self.goal_id:
-            self.load_goal_data()
-        else:
-            self.period_combo.set("هفتگی") # Default value
-
-        # دکمه ذخیره
-        ttkb.Button(frame, text="ذخیره", command=self.save, bootstyle=styles.BTN_PRIMARY).grid(row=3, column=0, columnspan=2, pady=15)
-
-        if not self.available_categories and not self.goal_id:
-            messagebox.showinfo("توجه", "همه‌ی دسته‌بندی‌ها دارای هدف هستند یا هیچ دسته‌بندی وجود ندارد.", parent=self)
-            self.destroy()
-
-    def load_goal_data(self):
-        """بارگذاری داده‌های هدف در حالت ویرایش"""
-        for g in db.get_all_goals():
-            if g[0] == int(self.goal_id):
-                _, _, cat_name, period, target_hours = g
-                self.cat_combo.set(cat_name)
-                self.cat_combo.config(state="disabled") # Do not allow changing category
-                self.period_combo.set("هفتگی" if period == 'weekly' else "ماهانه")
-                self.hours_entry.insert(0, f"{target_hours:.1f}")
-                break
-
-    def save(self):
-        """ذخیره کردن هدف جدید یا ویرایش شده"""
-        cat_name = self.cat_combo.get()
-        period_fa = self.period_combo.get()
-        target_hours_str = self.hours_entry.get()
-
-        if not all([cat_name, period_fa, target_hours_str]):
-            messagebox.showerror("خطا", "لطفاً تمام فیلدها را پر کنید.", parent=self)
-            return
-
-        try:
-            target_hours = float(target_hours_str)
-            if target_hours <= 0: raise ValueError
-        except ValueError:
-            messagebox.showerror("خطا", "ساعت هدف باید یک عدد مثبت باشد.", parent=self)
-            return
-
-        category_id = self.available_categories[cat_name]
-        period_en = 'weekly' if period_fa == "هفتگی" else 'monthly'
-
-        if self.goal_id: # ویرایش
-            db.update_goal(self.goal_id, period_en, target_hours)
-        else: # افزودن
-            db.add_goal(category_id, period_en, target_hours)
-
-        self.master_window.refresh_goals_list()
-        self.destroy()
-
 class AddManualEntryWindow(Toplevel):
     def __init__(self, master):
         super().__init__(master)
@@ -547,18 +354,26 @@ class AddManualEntryWindow(Toplevel):
                                       values=[''] + list(self.master.category_map.keys()), 
                                       justify='right', font=styles.DEFAULT_FONT)
         self.cat_combo.grid(row=1, column=0, padx=5, pady=5, sticky='ew')
-        
-        ttkb.Label(frame, text="زمان شروع (شمسی)").grid(row=2, column=1, padx=5, pady=5, sticky='e')
-        self.start_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
-        now_jalali = jdatetime.datetime.now().strftime('%Y/%m/%d %H:%M:00')
-        self.start_entry.insert(0, now_jalali)
-        self.start_entry.grid(row=2, column=0, padx=5, pady=5, sticky='ew')
-        
-        ttkb.Label(frame, text="زمان پایان (شمسی)").grid(row=3, column=1, padx=5, pady=5, sticky='e')
-        self.end_entry = ttkb.Entry(frame, width=40, justify='center', font=styles.DEFAULT_FONT)
-        self.end_entry.insert(0, now_jalali)
-        self.end_entry.grid(row=3, column=0, padx=5, pady=5, sticky='ew')
-        
+
+        # Separate Date and Time entries
+        ttkb.Label(frame, text="تاریخ (شمسی)").grid(row=2, column=1, padx=5, pady=5, sticky='e')
+        self.date_entry = DateEntry(frame, width=15, justify='center', font=styles.DEFAULT_FONT)
+        self.date_entry.set(jdatetime.date.today().strftime('%Y/%m/%d'))
+        self.date_entry.grid(row=2, column=0, padx=5, pady=5, sticky='ew')
+
+        time_frame = ttkb.Frame(frame)
+        time_frame.grid(row=3, column=0, columnspan=2, pady=5, sticky='ew')
+
+        ttkb.Label(time_frame, text="زمان پایان (HH:MM)").pack(side='right', padx=5)
+        self.end_time_entry = ttkb.Entry(time_frame, width=8, justify='center', font=styles.DEFAULT_FONT)
+        self.end_time_entry.insert(0, (datetime.now() + timedelta(hours=1)).strftime('%H:%M'))
+        self.end_time_entry.pack(side='right', padx=5)
+
+        ttkb.Label(time_frame, text="زمان شروع (HH:MM)").pack(side='right', padx=5)
+        self.start_time_entry = ttkb.Entry(time_frame, width=8, justify='center', font=styles.DEFAULT_FONT)
+        self.start_time_entry.insert(0, datetime.now().strftime('%H:%M'))
+        self.start_time_entry.pack(side='right', padx=5)
+
         ttkb.Label(frame, text="یادداشت").grid(row=4, column=1, padx=5, pady=5, sticky='e')
         self.notes_text = Text(frame, width=30, height=4, font=styles.DEFAULT_FONT)
         self.notes_text.grid(row=4, column=0, padx=5, pady=5, sticky='ew')
@@ -573,11 +388,16 @@ class AddManualEntryWindow(Toplevel):
             cat_name = self.cat_combo.get()
             cat_id = self.master.category_map.get(cat_name)
 
-            start_jalali_str = self.start_entry.get()
+            date_str = self.date_entry.get()
+            start_time_str = self.start_time_entry.get()
+            end_time_str = self.end_time_entry.get()
+
+            # Combine date and time and convert to Gregorian
+            start_jalali_str = f"{date_str} {start_time_str}:00"
             start_gregorian = jdatetime.datetime.strptime(start_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
             start_time_for_db = start_gregorian.strftime('%Y-%m-%d %H:%M:%S')
 
-            end_jalali_str = self.end_entry.get()
+            end_jalali_str = f"{date_str} {end_time_str}:00"
             end_gregorian = jdatetime.datetime.strptime(end_jalali_str, '%Y/%m/%d %H:%M:%S').togregorian()
             end_time_for_db = end_gregorian.strftime('%Y-%m-%d %H:%M:%S')
             
@@ -597,4 +417,4 @@ class AddManualEntryWindow(Toplevel):
                 self.destroy()
 
         except ValueError:
-            messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت صحیح: YYYY/MM/DD HH:MM:SS", parent=self)
+            messagebox.showerror("خطای فرمت", "فرمت تاریخ یا زمان شمسی صحیح نیست.\nفرمت تاریخ: YYYY/MM/DD\nفرمت زمان: HH:MM", parent=self)

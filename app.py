@@ -56,7 +56,6 @@ class TimeTrackerApp(ttkb.Window):
         self.create_widgets()
         self.populate_categories()
         self.reset_filters()
-        self.refresh_goals_display()
         self.update_timer()
 
     # ------------------------------------------------------------------
@@ -114,13 +113,6 @@ class TimeTrackerApp(ttkb.Window):
             command=lambda: ui_windows.CategoryManagerWindow(self),
             bootstyle=styles.BTN_INFO
         ).pack(side="right", padx=2)
-
-        ttkb.Button(
-            category_frame,
-            text="مدیریت اهداف",
-            command=self.open_goal_manager,
-            bootstyle=styles.BTN_SUCCESS
-        ).pack(side="right", padx=5)
 
         # --- توضیحات ---
         notes_frame = ttkb.Frame(main_frame)
@@ -247,12 +239,6 @@ class TimeTrackerApp(ttkb.Window):
         self.treeview_menu.add_command(label="ادامه فعالیت", command=self.resume_selected_entry)
         self.main_log_tree.bind("<Button-3>", self.show_treeview_menu)
 
-        # --- تب اهداف ---
-        goals_tab_frame = ttkb.Frame(notebook, padding=15)
-        notebook.add(goals_tab_frame, text=" اهداف هفتگی/ماهانه ")
-        self.goals_frame = ScrolledFrame(goals_tab_frame, autohide=True)
-        self.goals_frame.pack(fill="both", expand=True)
-
         # ---------------------------------------------
         # دکمه‌های پایینی (افزودن دستی / گزارش)
         # ---------------------------------------------
@@ -322,7 +308,6 @@ class TimeTrackerApp(ttkb.Window):
 
     def refresh_main_log(self) -> None:
         """خواندن داده‌ها از DB و نمایش در Treeview با توجه به فیلترها"""
-        self.refresh_goals_display() # Update goals progress as well
         # حذف ردیف‌های قبلی
         for item in self.main_log_tree.get_children():
             self.main_log_tree.delete(item)
@@ -528,65 +513,6 @@ class TimeTrackerApp(ttkb.Window):
         self.start_time = datetime.now()
         self.update_ui_state()
         self.refresh_main_log()
-
-    def refresh_goals_display(self) -> None:
-        """واکشی اهداف و نمایش پیشرفت آن‌ها در تب اهداف"""
-        # Clear previous widgets
-        for widget in self.goals_frame.winfo_children():
-            widget.destroy()
-
-        all_goals = db.get_all_goals()
-
-        if not all_goals:
-            ttkb.Label(self.goals_frame, text="هیچ هدفی تعریف نشده است. از دکمه 'مدیریت اهداف' برای افزودن استفاده کنید.", bootstyle="secondary").pack(pady=20)
-            return
-
-        today = jdatetime.date.today()
-
-        for goal_id, cat_id, cat_name, period, target_hours in all_goals:
-            # Calculate date range for the goal period
-            if period == 'weekly':
-                # Week starts on Saturday in jdatetime
-                start_of_period = today - jdatetime.timedelta(days=(today.weekday() + 1) % 7)
-                end_of_period = start_of_period + jdatetime.timedelta(days=7)
-            else: # monthly
-                start_of_period = today.replace(day=1)
-                # Find the next month's first day, then subtract one day
-                next_month = (start_of_period.replace(day=28) + jdatetime.timedelta(days=4)).replace(day=1)
-                end_of_period = next_month
-
-            # Convert to Gregorian for DB query
-            start_db = start_of_period.togregorian().strftime("%Y-%m-%d")
-            end_db = end_of_period.togregorian().strftime("%Y-%m-%d")
-
-            # Get achieved time in seconds and convert to hours
-            total_seconds = db.get_time_sum_for_category(cat_id, start_db, end_db)
-            achieved_hours = total_seconds / 3600.0
-
-            # --- Create Widgets for this goal ---
-            goal_container = ttkb.Frame(self.goals_frame)
-            goal_container.pack(fill="x", pady=10, padx=5)
-
-            # Label
-            period_fa = "هفتگی" if period == 'weekly' else "ماهانه"
-            label_text = f"هدف {period_fa} برای '{cat_name}'"
-            ttkb.Label(goal_container, text=label_text, font=(styles.DEFAULT_FONT[0], 12, "bold")).pack(fill="x")
-
-            # Progress bar
-            progress = (achieved_hours / target_hours) * 100 if target_hours > 0 else 0
-            pbar = ttkb.Progressbar(goal_container, value=progress, bootstyle=styles.BTN_SUCCESS)
-            pbar.pack(fill="x", pady=(5, 2))
-
-            # Progress text
-            progress_text = f"{achieved_hours:.1f} / {target_hours:.1f} ساعت ({progress:.0f}%)"
-            ttkb.Label(goal_container, text=progress_text, font=styles.DEFAULT_FONT).pack(fill="x")
-
-
-    def open_goal_manager(self) -> None:
-        """باز کردن پنجره مدیریت اهداف"""
-        win = ui_windows.GoalManagerWindow(self)
-        self.wait_window(win) # Wait until the window is closed
-        self.refresh_goals_display()
 
 
 # ----------------------------------------------------------------------
