@@ -3,74 +3,71 @@
 # ==========================================================
 import ttkbootstrap as ttkb
 import styles
+from jalali_datepicker import JalaliDatepicker
 
 
-class DateEntry(ttkb.Entry):
+class DateEntry(ttkb.Frame):
     """
-    ویجت ورودی تاریخ شمسی با فرمت YYYY/MM/DD
-    - فقط اعداد پذیرفته می‌شود
-    - اسلش‌ها ثابت باقی می‌مانند
-    - ماه و روز تک‌رقمی به صورت خودکار دو رقمی می‌شوند
+    A custom widget combining a ttk.Entry for date input (YYYY/MM/DD)
+    and a button to open a Jalali calendar popup.
     """
+    def __init__(self, master, **kwargs):
+        super().__init__(master)
 
-    # ----------------------------------------------------------
-    def __init__(self, master, placeholder: str = "YYYY/MM/DD", **kwargs):
-        """
-        :param master: والد tkinter
-        :param placeholder: متن راهنما (پیش‌فرض: YYYY/MM/DD)
-        :param kwargs: سایر ویژگی‌های استاندارد Entry
-        """
-        # حذف justify و font از kwargs تا خودمان مدیریت کنیم
-        kwargs.setdefault("justify", "center")
-        kwargs.setdefault("font", styles.DEFAULT_FONT)
-        super().__init__(master, **kwargs)
+        # The actual Entry widget
+        self.entry = ttkb.Entry(self, **kwargs)
+        self.entry.pack(side="right", fill="x", expand=True)
 
-        # ثبت تابع اعتبارسنجی
+        # Button to open the datepicker
+        self.calendar_button = ttkb.Button(
+            self, text="📅", command=self.open_datepicker,
+            bootstyle="secondary", width=2
+        )
+        self.calendar_button.pack(side="left", padx=(5, 0))
+
+        # --- Validation and Formatting Logic (adapted for self.entry) ---
         vcmd = (self.register(self._validate_input), "%P", "%d", "%i", "%s")
-        self.config(validate="key", validatecommand=vcmd)
+        self.entry.config(validate="key", validatecommand=vcmd)
+        self.entry.bind("<FocusOut>", self._format_date_on_focus_out)
+        self.entry.bind("<Return>", self._format_date_on_focus_out)
 
-        # رویدادهای فرمت‌دهی خودکار
-        self.bind("<FocusOut>", self._format_date_on_focus_out)
-        self.bind("<Return>", self._format_date_on_focus_out)
+    def open_datepicker(self):
+        """Opens the Jalali datepicker to select a date."""
+        JalaliDatepicker(self, self)
 
-        # درج متن راهنما
-        self.insert(0, placeholder)
+    def get(self) -> str:
+        """Returns the current value of the date entry."""
+        return self.entry.get()
 
-    # ----------------------------------------------------------
+    def set(self, date_str: str):
+        """Sets the value of the date entry."""
+        self.entry.delete(0, "end")
+        self.entry.insert(0, date_str)
+        self._format_date_on_focus_out()
+
     def _validate_input(self, proposed_text: str, action_type: str, index_str: str, current_text: str) -> bool:
-        """
-        اعتبارسنجی کاراکتر به کاراکتر هنگام تایپ.
-        action_type = '0' → حذف
-        action_type = '1' → افزودن
-        """
-        if action_type == "0":  # حذف
+        """Validation logic for character-by-character input."""
+        if action_type == "0":  # Deletion
             index = int(index_str)
-            # جلوگیری از حذف اسلش‌ها
             if index in (4, 7):
-                return False
+                return False  # Prevent deleting slashes
             return True
 
-        # جلوگیری از طول بیش از ۱۰ کاراکتر
         if len(proposed_text) > 10:
             return False
 
         index = int(index_str)
         char_to_insert = proposed_text[index] if index < len(proposed_text) else ""
 
-        # اگر موقعیت اسلش است، تایپ را رد کن
         if index in (4, 7):
-            return False
+            return False  # Don't allow typing over slashes
 
-        # فقط عدد مجاز است
         return char_to_insert.isdigit()
 
-    # ----------------------------------------------------------
-    def _format_date_on_focus_out(self, event=None) -> None:
-        """
-        دو رقمی کردن ماه و روز هنگام ترک فیلد یا زدن Enter.
-        """
-        current_text = self.get().strip()
-        if current_text == "":
+    def _format_date_on_focus_out(self, event=None):
+        """Auto-formats the month and day to be two digits."""
+        current_text = self.entry.get().strip()
+        if not current_text or "Y" in current_text:
             return
 
         parts = current_text.split("/")
@@ -78,23 +75,10 @@ class DateEntry(ttkb.Entry):
             return
 
         year, month, day = parts
-
-        # دو رقمی کردن ماه و روز
         month = month.zfill(2)
         day = day.zfill(2)
 
         formatted = f"{year}/{month}/{day}"
-
-        # اگر سال ۴ رقمی و ماه/روز ۲ رقمی بود، جایگزین کن
         if len(year) == 4 and len(month) == 2 and len(day) == 2:
-            self.delete(0, "end")
-            self.insert(0, formatted)
-
-    # ----------------------------------------------------------
-    def set(self, date_str: str) -> None:
-        """
-        تنظیم سریع تاریخ (با فرمت YYYY/MM/DD)
-        """
-        self.delete(0, "end")
-        self.insert(0, date_str)
-        self._format_date_on_focus_out()
+            self.entry.delete(0, "end")
+            self.entry.insert(0, formatted)
