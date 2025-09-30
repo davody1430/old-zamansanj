@@ -3,7 +3,7 @@
 # ==========================================================
 import ttkbootstrap as ttkb
 from tkinter import messagebox, Menu, BooleanVar, StringVar, Toplevel
-from ttkbootstrap.scrolled import ScrolledText, ScrolledFrame
+from ttkbootstrap.scrolled import ScrolledText
 import database as db
 from datetime import datetime, timedelta
 import jdatetime
@@ -11,8 +11,6 @@ import ui_windows
 import styles
 from tkextrafont import Font
 from custom_widgets import DateEntry
-import webbrowser
-import os
 
 
 class TimeTrackerApp(ttkb.Window):
@@ -208,16 +206,12 @@ class TimeTrackerApp(ttkb.Window):
         self.apply_filter_button.pack(side="left", padx=5)
 
         # ---------------------------------------------
-        # بخش تب‌ها (تاریخچه و اهداف)
+        # بخش تاریخچه
         # ---------------------------------------------
-        notebook = ttkb.Notebook(main_frame, bootstyle="primary")
-        notebook.grid(row=5, column=0, sticky="nsew", pady=(0, 5))
-
-        # --- تب تاریخچه ---
-        log_frame = ttkb.Frame(notebook, padding=5)
+        log_frame = ttkb.Frame(main_frame, padding=5)
+        log_frame.grid(row=5, column=0, sticky="nsew", pady=(0, 5))
         log_frame.grid_rowconfigure(0, weight=1)
         log_frame.grid_columnconfigure(0, weight=1)
-        notebook.add(log_frame, text=" تاریخچه فعالیت‌ها ")
 
         self.main_log_tree = ttkb.Treeview(
             log_frame,
@@ -268,15 +262,30 @@ class TimeTrackerApp(ttkb.Window):
     # متدهای عملیاتی
     # ------------------------------------------------------------------
     def show_help_window(self) -> None:
-        """باز کردن فایل راهنما در مرورگر پیش‌فرض"""
-        file_path = "help.md"
-        try:
-            if os.path.exists(file_path):
-                webbrowser.open("file://" + os.path.abspath(file_path))
-            else:
-                messagebox.showerror("خطا", f"فایل راهنما در مسیر '{file_path}' یافت نشد.")
-        except Exception as e:
-            messagebox.showerror("خطا", f"خطا در باز کردن فایل راهنما:\n{e}")
+        """نمایش پنجره‌ی راهنما"""
+        help_win = Toplevel(self)
+        help_win.title("راهنمای نرم‌افزار زمان‌سنج")
+        help_win.geometry("800x600")
+        help_win.transient(self)
+        help_win.grab_set()
+
+        help_content = """
+## راهنمای نرم‌افزار زمان‌سنج (ZamanSanj)
+
+این نرم‌افزار برای ثبت و مدیریت زمان فعالیت‌های روزانه شما طراحی شده است.
+
+### ۳. تاریخچه فعالیت‌ها و فیلترها
+- ...
+- **فیلترها**: بالای جدول، ابزارهایی برای فیلتر کردن تاریخچه وجود دارد:
+  - **فیلتر تاریخ**: بازه زمانی شمسی را با فرمت (مثال: ۱۴۰۳/۰۶/۲۴) وارد کنید.
+  - ...
+"""
+        text_widget = ScrolledText(help_win, wrap="word", font=styles.DEFAULT_FONT, padding=15)
+        text_widget.insert("1.0", help_content)
+        text_widget.text.tag_configure("rtl", justify="right")
+        text_widget.text.tag_add("rtl", "1.0", "end")
+        text_widget.text.config(state="disabled")
+        text_widget.pack(fill="both", expand=True)
 
     def apply_filters(self) -> None:
         self.refresh_main_log()
