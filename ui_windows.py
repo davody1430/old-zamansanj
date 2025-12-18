@@ -470,8 +470,7 @@ class CountdownTimerWindow(Toplevel):
             self.timer_id = self.after(1000, self.update_display)
         else:
             self.time_label.config(text="00:00")
-            messagebox.showinfo("پایان زمان", "زمان شما به پایان رسید!", parent=self)
-            self.stop_timer()
+            messagebox.showinfo(styles.TIME_END_TITLE, styles.TIME_END_MESSAGE, parent=self)
 
     def stop_timer(self):
         if self.timer_id:
