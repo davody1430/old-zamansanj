@@ -427,7 +427,7 @@ class CountdownTimerWindow(Toplevel):
         self.title(styles.COUNTDOWN_TIMER_WINDOW_TITLE)
         self.transient(master)
         self.grab_set()
-        self.geometry("300x200")
+        self.geometry(styles.COUNTDOWN_TIMER_WINDOW_GEOMETRY)
         self.resizable(False, False)
 
         main_frame = ttkb.Frame(self, padding=10)
