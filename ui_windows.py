@@ -433,7 +433,7 @@ class CountdownTimerWindow(Toplevel):
         main_frame = ttkb.Frame(self, padding=10)
         main_frame.pack(fill="both", expand=True)
 
-        ttkb.Label(main_frame, text="زمان (دقیقه):").pack(pady=5)
+        ttkb.Label(main_frame, text=styles.COUNTDOWN_DURATION_LABEL).pack(pady=5)
         self.duration_entry = ttkb.Entry(main_frame, justify="center", width=10)
         self.duration_entry.pack(pady=5)
 
