@@ -424,7 +424,7 @@ class CountdownTimerWindow(Toplevel):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
-        self.title("شمارشگر معکوس")
+        self.title(styles.COUNTDOWN_TIMER_WINDOW_TITLE)
         self.transient(master)
         self.grab_set()
         self.geometry("300x200")
