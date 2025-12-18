@@ -446,7 +446,7 @@ class CountdownTimerWindow(Toplevel):
         self.start_button = ttkb.Button(button_frame, text="شروع", command=self.start_timer, bootstyle=styles.BTN_SUCCESS)
         self.start_button.pack(side="left", padx=5)
 
-        self.stop_button = ttkb.Button(button_frame, text="توقف", command=self.stop_timer, bootstyle=styles.BTN_DANGER, state="disabled")
+        self.stop_button = ttkb.Button(button_frame, text=styles.STOP_BUTTON_TEXT, command=self.stop_timer, bootstyle=styles.BTN_DANGER, state="disabled")
         self.stop_button.pack(side="left", padx=5)
 
         self.remaining_time = 0
