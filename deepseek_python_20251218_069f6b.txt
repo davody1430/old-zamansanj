@@ -1,0 +1,9 @@
+# ذخیره داده‌ها در فایل
+counter = ImamTimeCounter()
+counter.export_to_json("imam_time.json")
+
+# خواندن از فایل
+import json
+with open("imam_time.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+    print(data['time_units']['years']['display'])

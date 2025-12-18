@@ -1,0 +1,13 @@
+# در فایل اصلی نرم‌افزار خود
+from imam_time_counter import get_current_time, get_time_string
+
+# دریافت داده‌های زمان
+time_data = get_current_time()
+
+# نمایش در قالب مشابه وب
+print(f"سال: {time_data['years']['display']}")
+print(f"ماه: {time_data['months']['display']}")
+print(f"روز: {time_data['days']['display']}")
+print(f"ساعت: {time_data['hours']['display']}")
+print(f"دقیقه: {time_data['minutes']['display']}")
+print(f"ثانیه: {time_data['seconds']['display']}")

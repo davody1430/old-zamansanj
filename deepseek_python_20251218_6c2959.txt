@@ -1,0 +1,87 @@
+from imam_time_counter import ImamTimeCounter
+
+# ایجاد نمونه
+counter = ImamTimeCounter()
+
+# دریافت تمام داده‌ها
+all_data = counter.get_formatted_time()
+
+# استفاده در GUI (مثال با tkinter)
+import tkinter as tk
+from tkinter import font
+
+class ImamTimeApp:
+    def __init__(self, root):
+        self.root = root
+        self.counter = ImamTimeCounter()
+        
+        # تنظیمات پنجره
+        self.root.title("لحظه‌شمار غیبت امام زمان (عج)")
+        self.root.geometry("1000x400")
+        self.root.configure(bg='#0a2f1d')
+        
+        # ایجاد کارت‌های نمایش
+        self.create_cards()
+        
+        # شروع به‌روزرسانی خودکار
+        self.update_display()
+    
+    def create_cards(self):
+        # ایجاد فریم برای کارت‌ها
+        cards_frame = tk.Frame(self.root, bg='#0a2f1d')
+        cards_frame.pack(pady=50)
+        
+        self.cards = {}
+        units = ['سال', 'ماه', 'روز', 'ساعت', 'دقیقه', 'ثانیه']
+        
+        for i, unit in enumerate(units):
+            card = tk.Frame(cards_frame, 
+                          bg='#0a472e',
+                          relief='raised',
+                          borderwidth=3)
+            card.grid(row=0, column=i, padx=10, pady=10)
+            
+            # نمایش عدد
+            value_label = tk.Label(card, 
+                                 text="۰",
+                                 font=('B Nazanin', 36, 'bold'),
+                                 bg='#0a472e',
+                                 fg='#2ecc71')
+            value_label.pack(pady=20)
+            
+            # نمایش واحد
+            unit_label = tk.Label(card,
+                                text=unit,
+                                font=('B Nazanin', 16),
+                                bg='#0a472e',
+                                fg='#ffffff')
+            unit_label.pack(pady=10)
+            
+            self.cards[unit] = value_label
+    
+    def update_display(self):
+        # دریافت داده‌های جدید
+        time_data = self.counter.get_formatted_time()
+        
+        # به‌روزرسانی کارت‌ها
+        unit_map = {
+            'سال': 'years',
+            'ماه': 'months',
+            'روز': 'days',
+            'ساعت': 'hours',
+            'دقیقه': 'minutes',
+            'ثانیه': 'seconds'
+        }
+        
+        for unit_persian, unit_key in unit_map.items():
+            display_text = time_data[unit_key]['display']
+            self.cards[unit_persian].config(text=display_text)
+        
+        # تنظیم به‌روزرسانی مجدد بعد از ۱ ثانیه
+        self.root.after(1000, self.update_display)
+
+# اجرای برنامه
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ImamTimeApp(root)
+    root.mainloop()

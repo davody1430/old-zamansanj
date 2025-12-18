@@ -1,0 +1,237 @@
+# imam_time_counter.py
+import datetime
+import math
+import asyncio
+from typing import Dict, Tuple
+import json
+
+class ImamTimeCounter:
+    """شمارنده زمان از آغاز غیبت صغرای امام زمان (عج)"""
+    
+    # تاریخ شروع: 5 بامداد 8 ربیع‌الاول 260 هجری قمری (27 ژوئن 874 میلادی)
+    GHAIBAT_START = datetime.datetime(874, 6, 27, 5, 0, 0)
+    
+    # ثابت‌های محاسبه
+    SOLAR_YEAR_DAYS = 365.2422  # میانگین طول سال شمسی
+    SOLAR_MONTH_DAYS = 30.436875  # میانگین طول ماه شمسی
+    
+    def __init__(self):
+        self.last_update = None
+        self.callbacks = []
+    
+    def calculate_time_passed(self) -> Dict[str, int]:
+        """محاسبه زمان سپری شده از آغاز غیبت"""
+        now = datetime.datetime.now()
+        diff = now - self.GHAIBAT_START
+        
+        # کل ثانیه‌ها
+        total_seconds = int(diff.total_seconds())
+        
+        # محاسبه بر اساس سال شمسی
+        total_days = diff.days
+        
+        # محاسبه سال‌ها
+        years = int(total_days / self.SOLAR_YEAR_DAYS)
+        remaining_days = total_days - (years * self.SOLAR_YEAR_DAYS)
+        
+        # محاسبه ماه‌ها
+        months = int(remaining_days / self.SOLAR_MONTH_DAYS)
+        remaining_days -= months * self.SOLAR_MONTH_DAYS
+        
+        # محاسبه روزها
+        days = int(remaining_days)
+        
+        # محاسبه ساعت، دقیقه و ثانیه
+        hours = int(diff.seconds // 3600)
+        minutes = int((diff.seconds % 3600) // 60)
+        seconds = int(diff.seconds % 60)
+        
+        return {
+            'years': years,
+            'months': months,
+            'days': days,
+            'hours': hours,
+            'minutes': minutes,
+            'seconds': seconds,
+            'total_seconds': total_seconds,
+            'total_days': total_days
+        }
+    
+    def to_persian_numbers(self, num: int) -> str:
+        """تبدیل اعداد انگلیسی به فارسی"""
+        persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+        return ''.join(persian_digits[int(d)] for d in str(num))
+    
+    def format_large_number(self, num: int) -> str:
+        """فرمت اعداد بزرگ با جداکننده هزارگان فارسی"""
+        str_num = f"{num:,}"
+        # جایگزینی جداکننده با ویرگول فارسی
+        str_num = str_num.replace(',', '٬')
+        return self.to_persian_numbers(str_num)
+    
+    def format_time_unit(self, value: int, unit_id: str) -> str:
+        """فرمت واحدهای زمانی (بدون صفر ابتدایی برای ساعت، دقیقه، ثانیه)"""
+        if unit_id in ['hour', 'minute', 'second']:
+            return self.to_persian_numbers(str(value))
+        return self.format_large_number(value)
+    
+    def get_formatted_time(self) -> Dict[str, any]:
+        """دریافت زمان به فرمت فرمت شده برای نمایش"""
+        time_data = self.calculate_time_passed()
+        
+        formatted = {
+            'years': {
+                'value': time_data['years'],
+                'display': self.format_time_unit(time_data['years'], 'year'),
+                'label': 'سال'
+            },
+            'months': {
+                'value': time_data['months'],
+                'display': self.format_time_unit(time_data['months'], 'month'),
+                'label': 'ماه'
+            },
+            'days': {
+                'value': time_data['days'],
+                'display': self.format_time_unit(time_data['days'], 'day'),
+                'label': 'روز'
+            },
+            'hours': {
+                'value': time_data['hours'],
+                'display': self.format_time_unit(time_data['hours'], 'hour'),
+                'label': 'ساعت'
+            },
+            'minutes': {
+                'value': time_data['minutes'],
+                'display': self.format_time_unit(time_data['minutes'], 'minute'),
+                'label': 'دقیقه'
+            },
+            'seconds': {
+                'value': time_data['seconds'],
+                'display': self.format_time_unit(time_data['seconds'], 'second'),
+                'label': 'ثانیه'
+            },
+            'total_seconds': {
+                'value': time_data['total_seconds'],
+                'display': self.format_large_number(time_data['total_seconds']),
+                'label': 'ثانیه'
+            }
+        }
+        
+        return formatted
+    
+    def get_time_string(self) -> str:
+        """دریافت زمان به صورت رشته متنی"""
+        time_data = self.calculate_time_passed()
+        return (
+            f"{self.format_large_number(time_data['years'])} سال "
+            f"{self.to_persian_numbers(time_data['months'])} ماه "
+            f"{self.to_persian_numbers(time_data['days'])} روز "
+            f"{self.to_persian_numbers(time_data['hours'])} ساعت "
+            f"{self.to_persian_numbers(time_data['minutes'])} دقیقه "
+            f"{self.to_persian_numbers(time_data['seconds'])} ثانیه"
+        )
+    
+    async def start_live_counter(self, update_callback=None, interval=1.0):
+        """شروع شمارنده زنده با به‌روزرسانی خودکار"""
+        if update_callback:
+            self.callbacks.append(update_callback)
+        
+        try:
+            while True:
+                time_data = self.get_formatted_time()
+                self.last_update = time_data
+                
+                # فراخوانی callback‌ها
+                for callback in self.callbacks:
+                    try:
+                        if asyncio.iscoroutinefunction(callback):
+                            await callback(time_data)
+                        else:
+                            callback(time_data)
+                    except Exception as e:
+                        print(f"Error in callback: {e}")
+                
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            print("Counter stopped")
+    
+    def export_to_json(self, filename: str = "imam_time_data.json"):
+        """ذخیره داده‌های زمان در فایل JSON"""
+        time_data = self.get_formatted_time()
+        
+        # تبدیل به ساختار ساده‌تر برای ذخیره
+        export_data = {
+            'last_updated': datetime.datetime.now().isoformat(),
+            'ghaihat_start': self.GHAIBAT_START.isoformat(),
+            'time_units': time_data
+        }
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(export_data, f, ensure_ascii=False, indent=2)
+        
+        return filename
+    
+    def compare_with_reference(self, reference_years: int, reference_months: int) -> Dict[str, any]:
+        """مقایسه با اعداد مرجع (مثلاً از وبسایت نایت اسکین)"""
+        current = self.calculate_time_passed()
+        
+        diff_years = current['years'] - reference_years
+        diff_months = current['months'] - reference_months
+        
+        # تبدیل تفاوت ماه به سال و ماه
+        total_diff_months = diff_years * 12 + diff_months
+        diff_years_abs = abs(total_diff_months) // 12
+        diff_months_abs = abs(total_diff_months) % 12
+        
+        return {
+            'current': f"{current['years']} سال و {current['months']} ماه",
+            'reference': f"{reference_years} سال و {reference_months} ماه",
+            'difference_months': total_diff_months,
+            'difference_formatted': f"{diff_years_abs} سال و {diff_months_abs} ماه",
+            'is_ahead': total_diff_months > 0
+        }
+
+
+# تابع کمکی برای استفاده سریع
+def get_current_time():
+    """دریافت زمان جاری به صورت سریع"""
+    counter = ImamTimeCounter()
+    return counter.get_formatted_time()
+
+
+def get_time_string():
+    """دریافت زمان به صورت رشته متنی"""
+    counter = ImamTimeCounter()
+    return counter.get_time_string()
+
+
+# نمونه‌سازی پیش‌فرض برای استفاده آسان
+default_counter = ImamTimeCounter()
+
+
+# برای اجرای مستقیم
+if __name__ == "__main__":
+    # مثال استفاده
+    counter = ImamTimeCounter()
+    
+    # دریافت داده‌های فرمت شده
+    time_data = counter.get_formatted_time()
+    
+    print("=" * 50)
+    print("لحظه‌شمار غیبت امام زمان (عج)")
+    print("=" * 50)
+    
+    for unit in ['years', 'months', 'days', 'hours', 'minutes', 'seconds']:
+        data = time_data[unit]
+        print(f"{data['display']} {data['label']}")
+    
+    print("=" * 50)
+    print(f"کل ثانیه‌ها: {time_data['total_seconds']['display']}")
+    print("=" * 50)
+    
+    # مقایسه با عدد مرجع از وبسایت نایت‌اسکین
+    comparison = counter.compare_with_reference(1151, 11)
+    print(f"\nمقایسه با مرجع (1151 سال و 11 ماه):")
+    print(f"محاسبه ما: {comparison['current']}")
+    print(f"مرجع: {comparison['reference']}")
+    print(f"تفاوت: {comparison['difference_formatted']}")
