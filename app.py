@@ -156,7 +156,7 @@ class TimeTrackerApp(ttkb.Window):
         # ---------------------------------------------
         # بخش فیلترها
         # ---------------------------------------------
-        filter_frame = ttkb.LabelFrame(main_frame, text="فیلترها", bootstyle=styles.FRAME_STYLE)
+        filter_frame = ttkb.Labelframe(main_frame, text="فیلترها", bootstyle=styles.FRAME_STYLE)
         filter_frame.grid(row=4, column=0, sticky="ew", pady=(10, 5), padx=5)
 
         ttkb.Label(filter_frame, text="از تاریخ", font=styles.DEFAULT_FONT).pack(side="right", padx=(0, 5))
