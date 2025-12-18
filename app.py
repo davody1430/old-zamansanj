@@ -258,6 +258,16 @@ class TimeTrackerApp(ttkb.Window):
             bootstyle=styles.BTN_PRIMARY
         ).pack(side="left", padx=10)
 
+        ttkb.Button(
+            center_frame,
+            text="شمارشگر معکوس",
+            command=self.open_countdown_timer,
+            bootstyle=styles.BTN_INFO
+        ).pack(side="left", padx=10)
+
+    def open_countdown_timer(self):
+        ui_windows.CountdownTimerWindow(self)
+
     # ------------------------------------------------------------------
     # متدهای عملیاتی
     # ------------------------------------------------------------------
