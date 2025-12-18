@@ -459,8 +459,7 @@ class CountdownTimerWindow(Toplevel):
             self.update_display()
             self.start_button.config(state="disabled")
             self.stop_button.config(state="normal")
-        except ValueError:
-            messagebox.showerror("خطای ورودی", "لطفا یک عدد صحیح برای دقیقه وارد کنید.", parent=self)
+            messagebox.showerror(styles.INPUT_ERROR_TITLE, styles.INPUT_ERROR_MESSAGE, parent=self)
 
     def update_display(self):
         if self.remaining_time > 0:
