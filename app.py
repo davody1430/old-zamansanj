@@ -260,7 +260,7 @@ class TimeTrackerApp(ttkb.Window):
 
         ttkb.Button(
             center_frame,
-            text=styles.COUNTDOWN_TIMER_BUTTON_TEXT,
+            text="شمارشگر معکوس",
             command=self.open_countdown_timer,
             bootstyle=styles.BTN_INFO
         ).pack(side="left", padx=10)
