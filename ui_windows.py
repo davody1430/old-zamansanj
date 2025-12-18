@@ -424,29 +424,29 @@ class CountdownTimerWindow(Toplevel):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
-        self.title(styles.COUNTDOWN_TIMER_WINDOW_TITLE)
+        self.title("شمارشگر معکوس")
         self.transient(master)
         self.grab_set()
-        self.geometry(styles.COUNTDOWN_TIMER_WINDOW_GEOMETRY)
+        self.geometry("300x200")
         self.resizable(False, False)
 
         main_frame = ttkb.Frame(self, padding=10)
         main_frame.pack(fill="both", expand=True)
 
-        ttkb.Label(main_frame, text=styles.COUNTDOWN_DURATION_LABEL).pack(pady=5)
+        ttkb.Label(main_frame, text="زمان (دقیقه):").pack(pady=5)
         self.duration_entry = ttkb.Entry(main_frame, justify="center", width=10)
         self.duration_entry.pack(pady=5)
 
-        self.time_label = ttkb.Label(main_frame, text=styles.DEFAULT_TIME_DISPLAY, font=styles.COUNTDOWN_TIMER_FONT)
+        self.time_label = ttkb.Label(main_frame, text="00:00", font=("Helvetica", 48))
         self.time_label.pack(pady=10)
 
         button_frame = ttkb.Frame(main_frame)
         button_frame.pack(pady=5)
 
-        self.start_button = ttkb.Button(button_frame, text=styles.START_BUTTON_TEXT, command=self.start_timer, bootstyle=styles.BTN_SUCCESS)
+        self.start_button = ttkb.Button(button_frame, text="شروع", command=self.start_timer, bootstyle=styles.BTN_SUCCESS)
         self.start_button.pack(side="left", padx=5)
 
-        self.stop_button = ttkb.Button(button_frame, text=styles.STOP_BUTTON_TEXT, command=self.stop_timer, bootstyle=styles.BTN_DANGER, state="disabled")
+        self.stop_button = ttkb.Button(button_frame, text="توقف", command=self.stop_timer, bootstyle=styles.BTN_DANGER, state="disabled")
         self.stop_button.pack(side="left", padx=5)
 
         self.remaining_time = 0
@@ -459,17 +459,19 @@ class CountdownTimerWindow(Toplevel):
             self.update_display()
             self.start_button.config(state="disabled")
             self.stop_button.config(state="normal")
-            messagebox.showerror(styles.INPUT_ERROR_TITLE, styles.INPUT_ERROR_MESSAGE, parent=self)
+        except ValueError:
+            messagebox.showerror("خطای ورودی", "لطفا یک عدد صحیح برای دقیقه وارد کنید.", parent=self)
 
     def update_display(self):
-        if self.remaining_time > 0:
+        if self.remaining_time >= 0:
             mins, secs = divmod(self.remaining_time, 60)
             self.time_label.config(text=f"{mins:02d}:{secs:02d}")
             self.remaining_time -= 1
             self.timer_id = self.after(1000, self.update_display)
         else:
             self.time_label.config(text="00:00")
-            messagebox.showinfo(styles.TIME_END_TITLE, styles.TIME_END_MESSAGE, parent=self)
+            messagebox.showinfo("پایان زمان", "زمان شما به پایان رسید!", parent=self)
+            self.stop_timer()
 
     def stop_timer(self):
         if self.timer_id:
